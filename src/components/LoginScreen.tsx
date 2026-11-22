@@ -174,32 +174,32 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-[#F3F6F8] p-4 sm:p-6 text-slate-900">
-      <div className="w-full max-w-md space-y-6">
+    <div className="min-h-screen flex flex-col justify-center items-center bg-[#F3F6F8] p-3 sm:p-6 text-slate-900">
+      <div className="w-full max-w-md space-y-4 sm:space-y-6">
         {/* Brand Card Header */}
-        <div className="text-center space-y-2.5">
-          <div className="inline-flex items-center justify-center px-6 py-3 rounded-2xl bg-white shadow-2xs border border-slate-200/90 mx-auto">
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center justify-center px-5 py-2.5 sm:px-6 sm:py-3 rounded-2xl bg-white shadow-2xs border border-slate-200/90 mx-auto">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logo.png"
               alt="Biorasence"
-              className="h-11 sm:h-12 w-auto object-contain"
+              className="h-9 sm:h-12 w-auto object-contain"
             />
           </div>
           <div className="flex items-center justify-center gap-2">
-            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80 tracking-tight">
+            <span className="text-[11px] sm:text-xs font-semibold px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80 tracking-tight">
               Lojistik &amp; Parti Takip Sistemi
             </span>
           </div>
-          <p className="text-xs text-slate-500 font-medium">
+          <p className="text-[11px] sm:text-xs text-slate-500 font-medium">
             Mobil Depo ve Lot/SKT Operasyon Konsolu
           </p>
         </div>
 
         {/* Login Box */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-          <div className="border-b border-slate-100 pb-4">
-            <h2 className="text-lg font-bold text-slate-900">Personel Girişi</h2>
+        <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-xs space-y-5 sm:space-y-6">
+          <div className="border-b border-slate-100 pb-3 sm:pb-4">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900">Personel Girişi</h2>
             <p className="text-xs text-slate-500 mt-0.5">
               Depo operasyonlarına erişmek için kimlik bilgilerinizle oturum açın.
             </p>
@@ -332,8 +332,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </div>
           )}
 
-          {/* First-time Admin Access Shortcut if empty */}
-          {users.length === 0 && (
+          {/* First-time Admin Access Shortcut if no admin exists or empty */}
+          {(!users.some((u) => u.role === 'Admin') || users.length === 0) && (
             <div className="p-4 rounded-xl bg-teal-50 border border-teal-200 text-xs text-teal-900 space-y-2">
               <div className="flex items-center gap-1.5 font-bold text-teal-800">
                 <ShieldCheck className="w-4 h-4 text-teal-700" />

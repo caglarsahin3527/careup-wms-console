@@ -3,22 +3,52 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+  }
+
   body {
-    background-color: #f8fafc;
+    background-color: #f3f6f8;
     color: #0f172a;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent iOS Safari from zooming when tapping on input/select/textarea */
+  @media screen and (max-width: 768px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
   }
 
   /* Refined selection */
   ::selection {
-    background-color: #052e16;
-    color: #f0fdf4;
+    background-color: #0f766e;
+    color: #ffffff;
   }
 }
 
-/* Custom scrollbars */
+/* Safe area support for iOS notches & home indicators */
+.pt-safe {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+/* Hide scrollbar for clean horizontal swiping on mobile */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom scrollbars for desktop */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;

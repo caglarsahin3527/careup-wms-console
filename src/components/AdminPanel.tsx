@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import {
   Product,
+  Batch,
   ShelfLocation,
   WarehouseUser,
   SystemRules,
@@ -74,30 +75,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
   // New Product Form State
-  const [newSku, setNewSku] = useState('CU-ZN-007');
-  const [newBarcode, setNewBarcode] = useState('8682941001077');
-  const [newName, setNewName] = useState('Care Up Çinko Pikolinat 15 mg');
-  const [newSubtitle, setNewSubtitle] = useState('Bağışıklık & Cilt Desteği • 60 Tablet');
+  const [newSku, setNewSku] = useState('');
+  const [newBarcode, setNewBarcode] = useState('');
+  const [newName, setNewName] = useState('');
+  const [newSubtitle, setNewSubtitle] = useState('');
   const [newForm, setNewForm] = useState<Product['form']>('Tablet');
   const [newUnit, setNewUnit] = useState<Product['unit']>('Kutu');
   const [newCategory, setNewCategory] = useState<Product['category']>('Vitamin & Mineral');
-  const [newMinStock, setNewMinStock] = useState<number>(45);
+  const [newMinStock, setNewMinStock] = useState<number>(30);
   const [newZone, setNewZone] = useState<Product['zone']>('A1');
-  const [newStorage, setNewStorage] = useState('Oda Sıcaklığı (<25°C), Kuru Alan');
-  const [initialLot, setInitialLot] = useState('LOT-25-ZN01');
-  const [initialExpiry, setInitialExpiry] = useState('2028-03-15');
-  const [initialQty, setInitialQty] = useState<number>(60);
-  const [initialShelf, setInitialShelf] = useState('RAF-A1-02-01');
+  const [newStorage, setNewStorage] = useState('Oda Sıcaklığı (<25°C)');
+  const [initialLot, setInitialLot] = useState('');
+  const [initialExpiry, setInitialExpiry] = useState('');
+  const [initialQty, setInitialQty] = useState<number>(0);
+  const [initialShelf, setInitialShelf] = useState('');
 
   // New Shelf Form State
-  const [shelfCode, setShelfCode] = useState('RAF-A1-05-01');
+  const [shelfCode, setShelfCode] = useState('');
   const [shelfZone, setShelfZone] = useState<ShelfLocation['zone']>('A1');
-  const [shelfLabel, setShelfLabel] = useState('Yeni Vitamin & Mineral Rafı (A1 Koridor 5)');
+  const [shelfLabel, setShelfLabel] = useState('');
   const [shelfTemp, setShelfTemp] = useState('Oda Sıcaklığı (<25°C)');
 
   // New User Form State with Authentication Credentials
   const [userName, setUserName] = useState('');
-  const [userCode, setUserCode] = useState('OP-112');
+  const [userCode, setUserCode] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
   const [userRole, setUserRole] = useState<UserRole>('Depo Çalışanı');
@@ -150,7 +151,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleCreateProduct = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSku.trim() || !newBarcode.trim() || !newName.trim()) return;
+    if (!newSku.trim() || !newBarcode.trim() || !newName.trim()) {
+      showNotice('Lütfen SKU, Barkod ve Ürün Adı alanlarını doldurunuz.');
+      return;
+    }
+
+    const createdBatches: Batch[] = [];
+    if (initialLot.trim() && initialExpiry && initialQty > 0) {
+      const selectedShelf = initialShelf.trim() || (shelves[0]?.code || 'RAF-A1-01');
+      createdBatches.push({
+        batchId: `b-${Date.now()}`,
+        lotNumber: initialLot.trim().toUpperCase(),
+        expiryDate: initialExpiry,
+        quantity: Number(initialQty),
+        shelfLocation: selectedShelf,
+        isQuarantine: selectedShelf.includes('KARANTINA'),
+      });
+    }
 
     const created: Product = {
       id: `prod-${Date.now()}`,
@@ -165,40 +182,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       minCriticalStock: Number(newMinStock) || 30,
       zone: newZone,
       storageCondition: newStorage,
-      batches: [
-        {
-          batchId: `b-${Date.now()}`,
-          lotNumber: initialLot.trim().toUpperCase() || 'LOT-25-01',
-          expiryDate: initialExpiry || '2027-12-31',
-          quantity: Number(initialQty) || 0,
-          shelfLocation: initialShelf,
-          isQuarantine: initialShelf.includes('KARANTINA'),
-        },
-      ],
+      batches: createdBatches,
     };
 
     onAddProduct(created);
-    showNotice(`"${created.name}" (${created.sku}) ürün kataloğuna ve barkod sistemine eklendi.`);
-    setNewSku(`CU-PRD-00${products.length + 2}`);
-    setNewBarcode(`86829410010${Math.floor(80 + Math.random() * 19)}`);
+    showNotice(`"${created.name}" (${created.sku}) veritabanına ve ürün kataloğuna eklendi.`);
+    setNewSku('');
+    setNewBarcode('');
     setNewName('');
+    setNewSubtitle('');
+    setInitialLot('');
+    setInitialExpiry('');
+    setInitialQty(0);
   };
 
   const handleCreateShelf = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!shelfCode.trim() || !shelfLabel.trim()) return;
+    if (!shelfCode.trim() || !shelfLabel.trim()) {
+      showNotice('Lütfen Raf Kodu ve Tanımlayıcı Açıklama alanlarını doldurunuz.');
+      return;
+    }
 
     const created: ShelfLocation = {
       id: `sh-${Date.now()}`,
       code: shelfCode.trim().toUpperCase(),
       zone: shelfZone,
       label: shelfLabel.trim(),
-      temperatureRule: shelfTemp.trim(),
+      temperatureRule: shelfTemp.trim() || 'Oda Sıcaklığı (<25°C)',
       isActive: true,
     };
 
     onAddShelf(created);
-    showNotice(`"${created.code}" raf konumu ambar adres sistemine tanımlandı.`);
+    showNotice(`"${created.code}" raf konumu veritabanına kaydedildi.`);
     setShelfCode('');
     setShelfLabel('');
   };
@@ -254,37 +269,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Header Bar */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start sm:items-center gap-3.5">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-start sm:items-center gap-3">
           <button
             type="button"
             onClick={onBackHome}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs sm:text-sm font-semibold transition-all cursor-pointer shrink-0"
+            className="flex items-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs sm:text-sm font-semibold transition-all cursor-pointer shrink-0 active:scale-95"
           >
             <ArrowLeft className="w-4 h-4 text-teal-700" />
-            <span>Ana Ekrana Dön</span>
+            <span>Ana Ekran</span>
           </button>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-slate-900">
-                Sistem &amp; Ana Veri Yönetim Paneli (Admin)
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                Sistem &amp; Ana Veri Yönetim Paneli
               </h2>
-              <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-900 text-white">
-                Tam Yetki
+              <span className="px-2 py-0.5 rounded-md text-[11px] sm:text-xs font-semibold bg-slate-900 text-white shrink-0">
+                Admin
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Ürün kataloğu tanımları, kritik stok eşikleri, raf/konum adresleri, personel rolleri ve operasyon kuralları.
+            <p className="text-xs text-slate-500 mt-0.5 line-clamp-1 sm:line-clamp-none">
+              Ürün tanımları, kritik eşikler, raf adresleri, personel rolleri ve kurallar.
             </p>
           </div>
         </div>
 
-        {/* Sub-Navigation Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+        {/* Sub-Navigation Tabs - Horizontally scrollable on mobile */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar sm:flex-wrap bg-slate-100 p-1 rounded-xl border border-slate-200">
           <button
             type="button"
             onClick={() => setActiveTab('PRODUCTS')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
               activeTab === 'PRODUCTS'
                 ? 'bg-white text-teal-800 shadow-xs border border-slate-200/80'
                 : 'text-slate-600 hover:text-slate-900'
@@ -296,7 +311,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('SHELVES')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
               activeTab === 'SHELVES'
                 ? 'bg-white text-teal-800 shadow-xs border border-slate-200/80'
                 : 'text-slate-600 hover:text-slate-900'
@@ -308,7 +323,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('USERS_RULES')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
               activeTab === 'USERS_RULES'
                 ? 'bg-white text-teal-800 shadow-xs border border-slate-200/80'
                 : 'text-slate-600 hover:text-slate-900'
@@ -556,69 +571,73 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
 
             <div className="space-y-3">
-              {products.map((prod) => {
-                const totalStock = prod.batches.reduce((sum, b) => sum + b.quantity, 0);
-                return (
-                  <div
-                    key={prod.id}
-                    className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
-                          {prod.sku}
-                        </span>
-                        <span className="font-mono text-xs text-slate-500">
-                          Barkod: {prod.barcode}
-                        </span>
-                        <span className="text-xs text-slate-500">• {prod.category}</span>
-                      </div>
-                      <h4 className="text-sm font-bold text-slate-900">{prod.name}</h4>
-                      <p className="text-xs text-slate-500">
-                        Mevcut Toplam Stok:{' '}
-                        <strong className="font-mono text-slate-800">
-                          {totalStock} {prod.unit}
-                        </strong>{' '}
-                        ({prod.batches.length} Parti)
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-500 mb-0.5">
-                          Kritik Stok Sınırı
-                        </label>
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="number"
-                            min="0"
-                            value={prod.minCriticalStock}
-                            onChange={(e) =>
-                              onUpdateProductThreshold(prod.id, Number(e.target.value))
-                            }
-                            className="w-20 px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 text-xs font-mono font-bold text-slate-900"
-                          />
-                          <span className="text-xs text-slate-500">{prod.unit}</span>
+              {products.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 text-xs bg-slate-50 rounded-xl border border-slate-200 p-6">
+                  Veritabanında henüz kayıtlı ürün kartı bulunmuyor. Soldaki formu kullanarak ilk ürün kartınızı oluşturabilirsiniz.
+                </div>
+              ) : (
+                products.map((prod) => {
+                  const totalStock = prod.batches.reduce((sum, b) => sum + b.quantity, 0);
+                  return (
+                    <div
+                      key={prod.id}
+                      className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                            {prod.sku}
+                          </span>
+                          <span className="font-mono text-xs text-slate-500">
+                            Barkod: {prod.barcode}
+                          </span>
+                          <span className="text-xs text-slate-500">• {prod.category}</span>
                         </div>
+                        <h4 className="text-sm font-bold text-slate-900">{prod.name}</h4>
+                        <p className="text-xs text-slate-500">
+                          Mevcut Toplam Stok:{' '}
+                          <strong className="font-mono text-slate-800">
+                            {totalStock} {prod.unit}
+                          </strong>{' '}
+                          ({prod.batches.length} Parti)
+                        </p>
                       </div>
 
-                      {products.length > 1 && (
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-0.5">
+                            Kritik Stok Sınırı
+                          </label>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min="0"
+                              value={prod.minCriticalStock}
+                              onChange={(e) =>
+                                onUpdateProductThreshold(prod.id, Number(e.target.value))
+                              }
+                              className="w-20 px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 text-xs font-mono font-bold text-slate-900"
+                            />
+                            <span className="text-xs text-slate-500">{prod.unit}</span>
+                          </div>
+                        </div>
+
                         <button
                           type="button"
                           onClick={() => {
                             onDeleteProduct(prod.id);
-                            showNotice(`${prod.sku} ürün kartı katalogdan silindi.`);
+                            showNotice(`${prod.sku} ürün kartı veritabanından silindi.`);
                           }}
                           title="Ürün Kartını Sil"
                           className="p-2 rounded-lg text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer mt-4"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
@@ -727,56 +746,60 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
 
             <div className="space-y-2.5">
-              {shelves.map((sh) => (
-                <div
-                  key={sh.id}
-                  className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-indigo-800 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-200">
-                        {sh.code}
-                      </span>
-                      <span className="text-xs font-semibold text-slate-600">
-                        Bölge: {sh.zone}
-                      </span>
-                      <span
-                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                          sh.isActive
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-slate-200 text-slate-600'
-                        }`}
-                      >
-                        {sh.isActive ? 'Aktif' : 'Pasif'}
-                      </span>
+              {shelves.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 text-xs bg-slate-50 rounded-xl border border-slate-200 p-6">
+                  Veritabanında henüz tanımlı raf konumu bulunmuyor. Soldaki formu kullanarak ilk raf adresinizi ekleyebilirsiniz.
+                </div>
+              ) : (
+                shelves.map((sh) => (
+                  <div
+                    key={sh.id}
+                    className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-indigo-800 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-200">
+                          {sh.code}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-600">
+                          Bölge: {sh.zone}
+                        </span>
+                        <span
+                          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                            sh.isActive
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {sh.isActive ? 'Aktif' : 'Pasif'}
+                        </span>
+                      </div>
+                      <p className="text-xs font-semibold text-slate-800">{sh.label}</p>
+                      <p className="text-[11px] text-slate-500">Koşul: {sh.temperatureRule}</p>
                     </div>
-                    <p className="text-xs font-semibold text-slate-800">{sh.label}</p>
-                    <p className="text-[11px] text-slate-500">Koşul: {sh.temperatureRule}</p>
-                  </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => onToggleShelfStatus(sh.id)}
-                      className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-xs font-semibold text-slate-700 cursor-pointer"
-                    >
-                      {sh.isActive ? 'Pasife Al' : 'Aktifleştir'}
-                    </button>
-                    {shelves.length > 2 && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => onToggleShelfStatus(sh.id)}
+                        className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-xs font-semibold text-slate-700 cursor-pointer"
+                      >
+                        {sh.isActive ? 'Pasife Al' : 'Aktifleştir'}
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
                           onDeleteShelf(sh.id);
-                          showNotice(`${sh.code} raf konumu silindi.`);
+                          showNotice(`${sh.code} raf konumu veritabanından silindi.`);
                         }}
                         className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 cursor-pointer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
-                    )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -888,21 +911,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             {/* System Data Reset Card */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-3">
               <h4 className="text-sm font-bold text-slate-900">
-                Sistem Bakımı &amp; Veri Sıfırlama
+                Veritabanı Senkronizasyonu &amp; Canlı Yenileme
               </h4>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Yerel bellekteki (`localStorage`) tüm stok hareketlerini, ürünleri ve raf ayarlarını başlangıç durumuna döndürür.
+                Yerel tarayıcı önbelleğini temizler ve tüm ürün, raf, kullanıcı ve hareket verilerini doğrudan Supabase veritabanından en güncel haliyle yeniden çeker.
               </p>
               <button
                 type="button"
                 onClick={() => {
                   onResetSystemData();
-                  showNotice('Sistem verileri başlangıç durumuna sıfırlandı.');
+                  showNotice('Tüm veriler Supabase veritabanından başarıyla yenilendi.');
                 }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold transition-colors cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-semibold transition-colors cursor-pointer"
               >
                 <RotateCcw className="w-4 h-4" />
-                <span>Tüm Sistem Verilerini Başlangıca Sıfırla</span>
+                <span>Veritabanından Yeniden Yükle</span>
               </button>
             </div>
           </div>

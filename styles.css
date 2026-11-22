@@ -1562,4 +1562,10 @@ select {
   .scanner-actions {
     grid-template-columns: 1fr;
   }
+
+  /* Mobile Phone Browser Enhancements */
+  input, select, textarea, button {
+    font-size: 16px;
+    -webkit-tap-highlight-color: transparent;
+  }
 }

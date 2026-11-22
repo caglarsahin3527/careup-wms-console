@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   ShieldCheck,
   User,
+  Home,
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { LoginScreen } from '@/components/LoginScreen';
@@ -26,17 +27,13 @@ import { AuditTrail } from '@/components/AuditTrail';
 import { AdminPanel } from '@/components/AdminPanel';
 import { InventoryModal } from '@/components/InventoryModal';
 import {
-  INITIAL_PRODUCTS,
-  INITIAL_TRANSACTIONS,
-  INITIAL_SHELVES,
-  INITIAL_USERS,
-  INITIAL_SYSTEM_RULES,
   Product,
   Transaction,
   ShelfLocation,
   WarehouseUser,
   SystemRules,
   UserRole,
+  DEFAULT_SYSTEM_RULES,
 } from '@/data/mockData';
 import {
   getSupabaseClient,
@@ -49,18 +46,19 @@ import {
 type ScreenState = 'HOME' | ActiveOperationMode | 'AUDIT_LOG' | 'ADMIN_PANEL';
 
 export default function WmsDashboard() {
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
-  const [shelves, setShelves] = useState<ShelfLocation[]>(INITIAL_SHELVES);
-  const [users, setUsers] = useState<WarehouseUser[]>(INITIAL_USERS);
-  const [systemRules, setSystemRules] = useState<SystemRules>(INITIAL_SYSTEM_RULES);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [shelves, setShelves] = useState<ShelfLocation[]>([]);
+  const [users, setUsers] = useState<WarehouseUser[]>([]);
+  const [systemRules, setSystemRules] = useState<SystemRules>(DEFAULT_SYSTEM_RULES);
 
   const [currentUser, setCurrentUser] = useState<WarehouseUser | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(INITIAL_PRODUCTS[0]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const currentRole: UserRole = currentUser?.role || 'Depo Çalışanı';
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [offlineQueue, setOfflineQueue] = useState<any[]>([]);
   const [networkNotice, setNetworkNotice] = useState<string | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
 
   const [activeScreen, setActiveScreen] = useState<ScreenState>('HOME');
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState<boolean>(false);
@@ -89,17 +87,32 @@ export default function WmsDashboard() {
     } catch {}
 
     async function loadInitialData() {
+      setIsLoadingData(true);
       try {
         const remote = await fetchAllWarehouseData();
         if (isMounted) {
-          if (remote.users.length > 0) setUsers(remote.users);
-          if (remote.shelves.length > 0) setShelves(remote.shelves);
-          if (remote.products.length > 0) {
-            setProducts(remote.products);
-            setSelectedProduct(remote.products[0]);
-          }
-          if (remote.transactions.length > 0) setTransactions(remote.transactions);
+          setUsers(remote.users);
+          setShelves(remote.shelves);
+          setProducts(remote.products);
+          setSelectedProduct(remote.products.length > 0 ? remote.products[0] : null);
+          setTransactions(remote.transactions);
           if (remote.systemRules) setSystemRules(remote.systemRules);
+
+          // Eşleşen oturum kullanıcısını canlı veritabanı ile senkronize et
+          const savedAuth = localStorage.getItem('careup_auth_user');
+          if (savedAuth) {
+            try {
+              const parsed: WarehouseUser = JSON.parse(savedAuth);
+              const freshUser = remote.users.find(
+                (u) => u.id === parsed.id || u.employeeCode === parsed.employeeCode || u.email === parsed.email
+              );
+              if (freshUser) {
+                setCurrentUser(freshUser);
+                localStorage.setItem('careup_auth_user', JSON.stringify(freshUser));
+              }
+            } catch {}
+          }
+          setIsLoadingData(false);
           return;
         }
       } catch (err) {
@@ -113,13 +126,19 @@ export default function WmsDashboard() {
         const savedUsers = localStorage.getItem('careup_users_v4');
         const savedRules = localStorage.getItem('careup_rules_v4');
 
-        if (savedProducts) setProducts(JSON.parse(savedProducts));
+        if (savedProducts) {
+          const parsedP = JSON.parse(savedProducts);
+          setProducts(parsedP);
+          if (parsedP.length > 0) setSelectedProduct(parsedP[0]);
+        }
         if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
         if (savedShelves) setShelves(JSON.parse(savedShelves));
         if (savedUsers) setUsers(JSON.parse(savedUsers));
         if (savedRules) setSystemRules(JSON.parse(savedRules));
       } catch (e) {
         console.warn('LocalStorage load warning', e);
+      } finally {
+        if (isMounted) setIsLoadingData(false);
       }
     }
 
@@ -161,16 +180,28 @@ export default function WmsDashboard() {
     }
   };
 
-  const handleResetToDefault = () => {
+  const handleResetToDefault = async () => {
     if (currentRole !== 'Admin') return;
-    persistData(
-      INITIAL_PRODUCTS,
-      INITIAL_TRANSACTIONS,
-      INITIAL_SHELVES,
-      INITIAL_USERS,
-      INITIAL_SYSTEM_RULES
-    );
-    setSelectedProduct(INITIAL_PRODUCTS[0]);
+    setIsLoadingData(true);
+    try {
+      localStorage.removeItem('careup_products_v4');
+      localStorage.removeItem('careup_transactions_v4');
+      localStorage.removeItem('careup_shelves_v4');
+      localStorage.removeItem('careup_users_v4');
+      const remote = await fetchAllWarehouseData();
+      setUsers(remote.users);
+      setShelves(remote.shelves);
+      setProducts(remote.products);
+      setSelectedProduct(remote.products.length > 0 ? remote.products[0] : null);
+      setTransactions(remote.transactions);
+      if (remote.systemRules) setSystemRules(remote.systemRules);
+      setNetworkNotice('Tüm veriler Supabase veritabanından başarıyla yenilendi.');
+      setTimeout(() => setNetworkNotice(null), 4000);
+    } catch (err: any) {
+      setNetworkNotice(`Veritabanı yenileme hatası: ${err?.message || err}`);
+    } finally {
+      setIsLoadingData(false);
+    }
   };
 
   const handleToggleNetwork = () => {
@@ -867,6 +898,11 @@ export default function WmsDashboard() {
       <Header
         currentRole={currentRole}
         currentUser={currentUser}
+        onRoleChange={
+          currentUser?.role === 'Admin'
+            ? (role) => setCurrentUser((prev) => (prev ? { ...prev, role } : null))
+            : undefined
+        }
         onLogout={handleLogout}
         isOnline={isOnline}
         onToggleNetwork={handleToggleNetwork}
@@ -876,10 +912,10 @@ export default function WmsDashboard() {
         onGoHome={() => setActiveScreen('HOME')}
       />
 
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col gap-6">
+      <div className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-8 flex flex-col gap-4 sm:gap-6 pb-24 md:pb-8">
         {/* Network / Sync Banner if triggered */}
         {networkNotice && (
-          <div className="w-full bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs sm:text-sm text-amber-900 flex items-center justify-between gap-3 shadow-2xs">
+          <div className="w-full bg-amber-50 border border-amber-200 rounded-xl p-3 sm:p-3.5 text-xs sm:text-sm text-amber-900 flex items-center justify-between gap-3 shadow-2xs">
             <span>{networkNotice}</span>
             <button
               type="button"
@@ -894,12 +930,12 @@ export default function WmsDashboard() {
         {activeScreen === 'HOME' ? (
           <>
             {/* Top Welcome & Operational KPI Summary */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-2xs space-y-5">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-2xs space-y-4 sm:space-y-5">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 pb-4 sm:pb-5 border-b border-slate-100">
                 <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[11px] sm:text-xs font-bold border ${
                         currentRole === 'Admin'
                           ? 'bg-slate-900 text-white border-slate-900'
                           : currentRole === 'Depo Sorumlusu'
@@ -916,7 +952,7 @@ export default function WmsDashboard() {
                       )}
                       Aktif Oturum: {currentRole}
                     </span>
-                    <span className="text-xs text-slate-500">
+                    <span className="text-[11px] sm:text-xs text-slate-500">
                       Personel: <strong className="text-slate-800 font-semibold">{currentUser?.name}</strong> ({currentUser?.employeeCode})
                     </span>
                     <span className="text-xs text-slate-500 hidden md:inline">
@@ -927,7 +963,7 @@ export default function WmsDashboard() {
                         : '• Barkod sorgulama, mal kabul, FEFO sevkiyat ve raf transferi işlemleri yapabilirsiniz.'}
                     </span>
                   </div>
-                  <h2 className="text-xl sm:text-2xl font-bold text-slate-900 pt-1">
+                  <h2 className="text-lg sm:text-2xl font-bold text-slate-900 pt-0.5 sm:pt-1">
                     Biorasence Depo Operasyon ve Stok Yönetim Merkezi
                   </h2>
                 </div>
@@ -937,7 +973,7 @@ export default function WmsDashboard() {
                   <button
                     type="button"
                     onClick={() => setActiveScreen('ADMIN_PANEL')}
-                    className="self-start md:self-auto flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border transition-all cursor-pointer shrink-0 bg-slate-900 hover:bg-slate-800 text-white border-slate-900 shadow-xs"
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border transition-all cursor-pointer shrink-0 bg-slate-900 hover:bg-slate-800 text-white border-slate-900 shadow-xs"
                   >
                     <Settings className="w-4 h-4 text-teal-400" />
                     <span>Sistem &amp; Ana Veri Yönetimi (Admin)</span>
@@ -946,75 +982,102 @@ export default function WmsDashboard() {
               </div>
 
               {/* 4 KPI Status Metrics */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3.5">
-                  <div className="p-2.5 rounded-xl bg-teal-50 text-teal-700 border border-teal-200">
-                    <Package className="w-5 h-5" />
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+                <div className="p-3 sm:p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 sm:gap-3.5">
+                  <div className="p-2 sm:p-2.5 rounded-xl bg-teal-50 text-teal-700 border border-teal-200 shrink-0">
+                    <Package className="w-4 sm:w-5 h-4 sm:h-5" />
                   </div>
-                  <div>
-                    <span className="text-xs text-slate-500 block">Kayıtlı Ürün Çeşidi</span>
-                    <strong className="text-base sm:text-lg font-bold text-slate-900 font-mono">
-                      {products.length} Ürün Kartı
+                  <div className="min-w-0">
+                    <span className="text-[11px] sm:text-xs text-slate-500 block truncate">Kayıtlı Ürün</span>
+                    <strong className="text-sm sm:text-lg font-bold text-slate-900 font-mono block truncate">
+                      {products.length} Ürün
                     </strong>
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3.5">
-                  <div className="p-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
-                    <AlertTriangle className="w-5 h-5" />
+                <div className="p-3 sm:p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 sm:gap-3.5">
+                  <div className="p-2 sm:p-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                    <AlertTriangle className="w-4 sm:w-5 h-4 sm:h-5" />
                   </div>
-                  <div>
-                    <span className="text-xs text-slate-500 block">Kritik Stok Uyarısı</span>
-                    <strong className="text-base sm:text-lg font-bold text-amber-800 font-mono">
+                  <div className="min-w-0">
+                    <span className="text-[11px] sm:text-xs text-slate-500 block truncate">Kritik Stok</span>
+                    <strong className="text-sm sm:text-lg font-bold text-amber-800 font-mono block truncate">
                       {criticalProducts.length} Ürün
                     </strong>
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3.5">
-                  <div className="p-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200">
-                    <Clock className="w-5 h-5" />
+                <div className="p-3 sm:p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 sm:gap-3.5">
+                  <div className="p-2 sm:p-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                    <Clock className="w-4 sm:w-5 h-4 sm:h-5" />
                   </div>
-                  <div>
-                    <span className="text-xs text-slate-500 block">
+                  <div className="min-w-0">
+                    <span className="text-[11px] sm:text-xs text-slate-500 block truncate">
                       SKT &lt; {systemRules.minExpiryDaysForExit} Gün
                     </span>
-                    <strong className="text-base sm:text-lg font-bold text-rose-700 font-mono">
+                    <strong className="text-sm sm:text-lg font-bold text-rose-700 font-mono block truncate">
                       {expiringBatches.length} Parti
                     </strong>
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3.5">
-                  <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200">
-                    <MapPin className="w-5 h-5" />
+                <div className="p-3 sm:p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 sm:gap-3.5">
+                  <div className="p-2 sm:p-2.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                    <MapPin className="w-4 sm:w-5 h-4 sm:h-5" />
                   </div>
-                  <div>
-                    <span className="text-xs text-slate-500 block">Aktif Raf Konumu</span>
-                    <strong className="text-base sm:text-lg font-bold text-slate-900 font-mono">
-                      {shelves.filter((s) => s.isActive).length} Raf Adresi
+                  <div className="min-w-0">
+                    <span className="text-[11px] sm:text-xs text-slate-500 block truncate">Aktif Raf</span>
+                    <strong className="text-sm sm:text-lg font-bold text-slate-900 font-mono block truncate">
+                      {shelves.filter((s) => s.isActive).length} Raf
                     </strong>
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* Empty State Banner if no products exist in DB yet */}
+            {products.length === 0 && (
+              <div className="bg-white border border-teal-200/90 rounded-2xl p-6 sm:p-8 text-center space-y-4 shadow-2xs">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700">
+                  <Package className="w-7 h-7" />
+                </div>
+                <div className="space-y-1.5 max-w-lg mx-auto">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                    Veritabanı Canlı Bağlantısı Aktif • Henüz Ürün Kaydı Yok
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                    Sisteminiz doğrudan Supabase PostgreSQL veritabanına bağlıdır ve kod içerisindeki tüm yapay/örnek veriler kaldırılmıştır. Depo operasyonlarını başlatmak için Admin panelinden ilk raf ve ürünlerinizi tanımlayabilirsiniz.
+                  </p>
+                </div>
+                {currentRole === 'Admin' && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveScreen('ADMIN_PANEL')}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-sm font-semibold transition-all shadow-xs cursor-pointer"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span>Admin Paneline Git &amp; İlk Ürün/Rafı Tanımla</span>
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Core Warehouse Operation Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-5">
               {actionCards.map((card) => {
                 const IconComponent = card.icon;
                 return (
                   <div
                     key={card.id}
                     onClick={card.onClick}
-                    className={`group bg-white border border-slate-200 ${card.hoverBorder} rounded-2xl p-6 flex flex-col justify-between transition-all cursor-pointer shadow-2xs hover:shadow-md`}
+                    className={`group bg-white border border-slate-200 ${card.hoverBorder} rounded-2xl p-4 sm:p-6 flex flex-col justify-between transition-all cursor-pointer shadow-2xs hover:shadow-md active:scale-[0.99]`}
                   >
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                       <div className="flex items-center justify-between gap-2">
-                        <div className={`p-3 rounded-xl border ${card.iconTheme}`}>
-                          <IconComponent className="w-6 h-6" />
+                        <div className={`p-2.5 sm:p-3 rounded-xl border ${card.iconTheme}`}>
+                          <IconComponent className="w-5 sm:w-6 h-5 sm:h-6" />
                         </div>
-                        <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 flex items-center gap-1">
+                        <span className="text-[11px] sm:text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full border border-slate-200 flex items-center gap-1">
                           {card.badge}
                         </span>
                       </div>
@@ -1023,13 +1086,13 @@ export default function WmsDashboard() {
                         <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-teal-700 transition-colors">
                           {card.title}
                         </h3>
-                        <p className="text-xs sm:text-sm text-slate-600 mt-1.5 leading-relaxed">
+                        <p className="text-xs sm:text-sm text-slate-600 mt-1 sm:mt-1.5 leading-relaxed">
                           {card.description}
                         </p>
                       </div>
                     </div>
 
-                    <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-teal-700 group-hover:text-teal-800">
+                    <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-teal-700 group-hover:text-teal-800">
                       <span>Modülü Aç</span>
                       <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </div>
@@ -1040,9 +1103,9 @@ export default function WmsDashboard() {
 
             {/* Real-World Operational Alerts: Critical Stock & Expiring Batches Table */}
             {(criticalProducts.length > 0 || expiringBatches.length > 0) && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
                 {/* Critical Stock Products */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-3">
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-600" />
@@ -1050,7 +1113,7 @@ export default function WmsDashboard() {
                         Kritik Stok Seviyesinin Altındaki Ürünler
                       </h3>
                     </div>
-                    <span className="text-xs font-semibold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                    <span className="text-[11px] sm:text-xs font-semibold text-amber-800 bg-amber-50 px-2 sm:px-2.5 py-0.5 rounded-full border border-amber-200 shrink-0">
                       İkmal Gerekli
                     </span>
                   </div>
@@ -1061,7 +1124,7 @@ export default function WmsDashboard() {
                       return (
                         <div
                           key={cp.id}
-                          className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3"
+                          className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3"
                         >
                           <div>
                             <div className="flex items-center gap-2">
@@ -1080,7 +1143,7 @@ export default function WmsDashboard() {
                               setSelectedProduct(cp);
                               setActiveScreen('STOK_GİRİŞİ');
                             }}
-                            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shrink-0 cursor-pointer"
+                            className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shrink-0 cursor-pointer text-center"
                           >
                             Mal Kabul Yap
                           </button>
@@ -1091,7 +1154,7 @@ export default function WmsDashboard() {
                 </div>
 
                 {/* Expiring Batches (< 30 Days) */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-3">
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-rose-600" />
@@ -1099,7 +1162,7 @@ export default function WmsDashboard() {
                         Son Kullanma Tarihi Yaklaşan Partiler (&lt; {systemRules.minExpiryDaysForExit} Gün)
                       </h3>
                     </div>
-                    <span className="text-xs font-semibold text-rose-800 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">
+                    <span className="text-[11px] sm:text-xs font-semibold text-rose-800 bg-rose-50 px-2 sm:px-2.5 py-0.5 rounded-full border border-rose-200 shrink-0">
                       Sevkiyat Kısıtlı
                     </span>
                   </div>
@@ -1114,7 +1177,7 @@ export default function WmsDashboard() {
                       expiringBatches.map((item) => (
                         <div
                           key={`${item.product.id}-${item.lotNumber}`}
-                          className="p-3 rounded-xl bg-rose-50/50 border border-rose-200 flex items-center justify-between gap-3"
+                          className="p-3 rounded-xl bg-rose-50/50 border border-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3"
                         >
                           <div>
                             <div className="flex items-center gap-2">
@@ -1135,7 +1198,7 @@ export default function WmsDashboard() {
                               setSelectedProduct(item.product);
                               setActiveScreen('TRANSFER');
                             }}
-                            className="px-3 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-xs font-semibold shrink-0 cursor-pointer"
+                            className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-xs font-semibold shrink-0 cursor-pointer text-center"
                           >
                             Karantinaya Ayır
                           </button>
@@ -1192,6 +1255,105 @@ export default function WmsDashboard() {
           />
         )}
       </div>
+
+      {/* MOBILE BOTTOM NAVIGATION BAR (Thumb-friendly for mobile browsers) */}
+      <nav
+        aria-label="Mobil Hızlı Menü"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-1 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-lg flex items-center justify-around"
+      >
+        <button
+          type="button"
+          onClick={() => setActiveScreen('HOME')}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-xl transition-all min-w-[56px] ${
+            activeScreen === 'HOME'
+              ? 'text-teal-700 font-bold bg-teal-50'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Home className="w-4 h-4" />
+          <span className="text-[10px]">Ana Ekran</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveScreen('SORGULAMA')}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-xl transition-all min-w-[56px] ${
+            activeScreen === 'SORGULAMA'
+              ? 'text-teal-700 font-bold bg-teal-50'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Scan className="w-4 h-4" />
+          <span className="text-[10px]">Sorgula</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveScreen('STOK_GİRİŞİ')}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-xl transition-all min-w-[56px] ${
+            activeScreen === 'STOK_GİRİŞİ'
+              ? 'text-blue-700 font-bold bg-blue-50'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <ArrowDownLeft className="w-4 h-4" />
+          <span className="text-[10px]">Giriş</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveScreen('STOK_ÇIKIŞI')}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-xl transition-all min-w-[56px] ${
+            activeScreen === 'STOK_ÇIKIŞI'
+              ? 'text-emerald-700 font-bold bg-emerald-50'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <ArrowUpRight className="w-4 h-4" />
+          <span className="text-[10px]">Çıkış</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveScreen('AUDIT_LOG')}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-xl transition-all min-w-[56px] ${
+            activeScreen === 'AUDIT_LOG'
+              ? 'text-slate-900 font-bold bg-slate-100'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <History className="w-4 h-4" />
+          <span className="text-[10px]">Geçmiş</span>
+        </button>
+
+        {currentRole === 'Admin' ? (
+          <button
+            type="button"
+            onClick={() => setActiveScreen('ADMIN_PANEL')}
+            className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-xl transition-all min-w-[56px] ${
+              activeScreen === 'ADMIN_PANEL'
+                ? 'text-slate-900 font-bold bg-slate-100'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+            <span className="text-[10px]">Admin</span>
+          </button>
+        ) : currentRole === 'Depo Sorumlusu' ? (
+          <button
+            type="button"
+            onClick={() => setActiveScreen('SAYIM_DÜZELTME')}
+            className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-xl transition-all min-w-[56px] ${
+              activeScreen === 'SAYIM_DÜZELTME'
+                ? 'text-amber-800 font-bold bg-amber-50'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ClipboardCheck className="w-4 h-4" />
+            <span className="text-[10px]">Sayım</span>
+          </button>
+        ) : null}
+      </nav>
 
       {/* Product Catalog Modal */}
       <InventoryModal

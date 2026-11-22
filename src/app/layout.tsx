@@ -1,9 +1,18 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Biorasence WMS • Depo & Barkod Sistemi',
   description: 'Web Tabanlı Barkod, Parti (Lot/SKT) ve Stok Takip Sistemi',
+  applicationName: 'Biorasence WMS',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Biorasence WMS',
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },
@@ -18,13 +27,22 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+  themeColor: '#ffffff',
+};
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="tr" className="dark">
+    <html lang="tr" className="h-full">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -33,7 +51,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-screen bg-[#080c14] text-slate-100 antialiased selection:bg-emerald-500 selection:text-slate-950">
+      <body className="min-h-[100dvh] w-full overflow-x-hidden bg-[#F3F6F8] text-slate-900 antialiased selection:bg-teal-700 selection:text-white overscroll-none">
         {children}
       </body>
     </html>

@@ -155,36 +155,36 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
 
   // 2. NORMAL HAREKET GEÇMİŞİ GÖRÜNÜMÜ
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       {onBackHome && (
-        <div className="w-full bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start sm:items-center gap-3.5">
+        <div className="w-full bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-start sm:items-center gap-3">
             <button
               type="button"
               onClick={onBackHome}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs sm:text-sm font-semibold transition-all cursor-pointer shrink-0"
+              className="flex items-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs sm:text-sm font-semibold transition-all cursor-pointer shrink-0 active:scale-95"
             >
               <ArrowLeft className="w-4 h-4 text-teal-700" />
-              <span>Ana Ekrana Dön</span>
+              <span>Ana Ekran</span>
             </button>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                Stok Hareket Geçmişi &amp; Geri Alma (Ters Kayıt)
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                Stok Hareket Geçmişi
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Kaydedilen tüm mal kabul, sevkiyat ve raf transferlerini inceleyin; yetkili onay ile ters kayıt uygulayın.
+              <p className="text-xs text-slate-500 mt-0.5 line-clamp-1 sm:line-clamp-none">
+                Tüm mal kabul, sevkiyat ve transfer denetim kayıtları.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {isAuthorizedForRollback ? (
-              <span className="text-xs bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1 rounded-lg flex items-center gap-1.5 font-semibold">
+              <span className="text-[11px] sm:text-xs bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-semibold">
                 <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-                Onaylı Geri Alma Yetkisi Aktif ({currentRole})
+                Geri Alma Yetkisi Aktif ({currentRole})
               </span>
             ) : (
-              <span className="text-xs bg-slate-100 text-slate-600 border border-slate-200 px-3 py-1 rounded-lg flex items-center gap-1.5 font-medium">
+              <span className="text-[11px] sm:text-xs bg-slate-100 text-slate-600 border border-slate-200 px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-medium">
                 <Lock className="w-3.5 h-3.5 text-slate-500" />
                 Salt Görüntüleme ({currentRole})
               </span>
@@ -195,15 +195,15 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
 
       {/* Success Notification Banner */}
       {successBanner && (
-        <div className="w-full bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between gap-3 text-emerald-800 text-xs sm:text-sm font-medium shadow-2xs">
-          <div className="flex items-center gap-2.5">
+        <div className="w-full bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 sm:p-4 flex items-center justify-between gap-3 text-emerald-800 text-xs sm:text-sm font-medium shadow-2xs">
+          <div className="flex items-center gap-2.5 min-w-0">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-            <span>{successBanner}</span>
+            <span className="truncate">{successBanner}</span>
           </div>
           <button
             type="button"
             onClick={() => setSuccessBanner(null)}
-            className="text-emerald-700 hover:text-emerald-900 p-1 rounded-lg"
+            className="text-emerald-700 hover:text-emerald-900 p-1 rounded-lg shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -211,16 +211,16 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
       )}
 
       {/* Main Transactions List */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-2xs">
-        <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
-            <History className="w-5 h-5 text-teal-700" />
-            <h3 className="text-base font-bold text-slate-900">
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-2xs">
+        <div className="flex items-center justify-between pb-3.5 mb-3.5 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <History className="w-5 h-5 text-teal-700 shrink-0" />
+            <h3 className="text-sm sm:text-base font-bold text-slate-900">
               Kayıtlı Stok Hareketleri ({transactions.length})
             </h3>
           </div>
           <span className="text-xs text-slate-500">
-            Aktif Rol: <strong className="text-slate-900">{currentRole}</strong>
+            Rol: <strong className="text-slate-900">{currentRole}</strong>
           </span>
         </div>
 
@@ -239,7 +239,7 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
               return (
                 <div
                   key={trx.id}
-                  className={`p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                  className={`p-3.5 sm:p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 ${
                     trx.isReversed
                       ? 'bg-slate-50/70 border-slate-200 opacity-60'
                       : isReversal
@@ -247,14 +247,14 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
                       : 'bg-white border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  <div className="space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                  <div className="space-y-1.5 min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                      <span className="font-mono text-[11px] sm:text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                         {trx.id}
                       </span>
-                      <span className="text-xs text-slate-500 font-mono">{trx.timestamp}</span>
+                      <span className="text-[11px] sm:text-xs text-slate-500 font-mono">{trx.timestamp}</span>
                       <span
-                        className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
+                        className={`text-[11px] sm:text-xs font-semibold px-2 sm:px-2.5 py-0.5 rounded-full border ${
                           isEntry
                             ? 'bg-blue-50 text-blue-700 border-blue-200'
                             : isExit
@@ -267,42 +267,42 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
                         {trx.type.replace('_', ' ')}
                       </span>
                       {trx.isReversed && (
-                        <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-semibold">
-                          Geri Alındı (Ters Kayıt)
+                        <span className="text-[11px] sm:text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-semibold">
+                          Geri Alındı
                         </span>
                       )}
                     </div>
 
-                    <h4 className="text-sm font-bold text-slate-900">
+                    <h4 className="text-sm font-bold text-slate-900 leading-snug">
                       {trx.productName}{' '}
                       <span className="text-xs font-mono text-slate-500 font-normal">
                         ({trx.productSku})
                       </span>
                     </h4>
 
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
                       <span>
                         Parti: <strong className="font-mono text-slate-900">{trx.lotNumber}</strong>
                       </span>
                       <span>•</span>
                       <span>
-                        Konum: <strong className="font-mono text-slate-800">{trx.sourceShelf}</strong>{' '}
+                        <strong className="font-mono text-slate-800">{trx.sourceShelf}</strong>{' '}
                         &rarr; <strong className="font-mono text-slate-800">{trx.targetShelf}</strong>
                       </span>
                       <span>•</span>
                       <span>
-                        İşlemi Yapan: <strong className="text-teal-800">{trx.userRole}</strong>
+                        Yapan: <strong className="text-teal-800">{trx.userRole}</strong>
                       </span>
                     </div>
 
                     {trx.note && (
-                      <p className="text-xs text-slate-500 italic">Not: &ldquo;{trx.note}&rdquo;</p>
+                      <p className="text-[11px] sm:text-xs text-slate-500 italic">Not: &ldquo;{trx.note}&rdquo;</p>
                     )}
                   </div>
 
-                  <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0">
+                  <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                     <span
-                      className={`font-mono font-bold text-base ${
+                      className={`font-mono font-bold text-base sm:text-lg ${
                         isEntry
                           ? 'text-blue-700'
                           : isExit
@@ -318,7 +318,7 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
                       <button
                         type="button"
                         onClick={() => handleRollbackClick(trx)}
-                        className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl transition-all cursor-pointer border ${
+                        className={`flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-all cursor-pointer border active:scale-95 ${
                           isAuthorizedForRollback
                             ? 'text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 border-amber-300'
                             : 'text-slate-700 hover:text-rose-700 bg-slate-100 hover:bg-rose-50 border-slate-200 hover:border-rose-200'
@@ -329,7 +329,7 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
                         ) : (
                           <Lock className="w-3.5 h-3.5 text-slate-500" />
                         )}
-                        <span>Ters Kayıt (Geri Al)</span>
+                        <span>Ters Kayıt</span>
                       </button>
                     )}
                   </div>
@@ -342,16 +342,16 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
 
       {/* 3. DEPO SORUMLUSU & ADMİN İÇİN DOĞRULAMA / ONAY SİSTEMİ (MODAL) */}
       {confirmingTrx && isAuthorizedForRollback && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 sm:p-7 shadow-xl space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full max-h-[92dvh] overflow-y-auto p-4 sm:p-7 shadow-xl space-y-4 sm:space-y-5">
             {/* Modal Header */}
             <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-600">
-                  <AlertTriangle className="w-6 h-6" />
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <div className="p-2 sm:p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 shrink-0">
+                  <AlertTriangle className="w-5 sm:w-6 h-5 sm:h-6" />
                 </div>
                 <div>
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                  <h3 className="text-sm sm:text-lg font-bold text-slate-900">
                     Geri Alma İşlemini Onaylıyor musunuz?
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -369,23 +369,23 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
             </div>
 
             {/* Transaction Details & Impact Box */}
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
               <p className="text-xs text-slate-600 leading-relaxed">
                 Bu işlem onaylandığında seçilen stok hareketi tersine çevrilecek, ilgili partinin stok bakiyesi güncellenecek ve hareket geçmişine{' '}
                 <strong className="text-amber-800 font-mono">TERS_KAYIT</strong> eklenecektir.
               </p>
 
-              <div className="bg-white rounded-xl p-3.5 border border-slate-200 space-y-2 text-xs">
+              <div className="bg-white rounded-xl p-3 sm:p-3.5 border border-slate-200 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Hedef İşlem No:</span>
+                  <span className="text-slate-500">Hedef İşlem:</span>
                   <span className="font-mono font-bold text-slate-900">{confirmingTrx.id}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500">Ürün:</span>
-                  <span className="text-slate-900 font-semibold">{confirmingTrx.productName}</span>
+                  <span className="text-slate-900 font-semibold truncate max-w-[180px]">{confirmingTrx.productName}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Parti (Lot) &amp; Konum:</span>
+                  <span className="text-slate-500">Parti &amp; Konum:</span>
                   <span className="font-mono text-slate-700">
                     {confirmingTrx.lotNumber} ({confirmingTrx.targetShelf})
                   </span>
@@ -400,10 +400,10 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
                   <span>Bakiye Etkisi:</span>
                   <span>
                     {confirmingTrx.type === 'STOK_GİRİŞİ'
-                      ? `Stoktan ${confirmingTrx.amount} ${confirmingTrx.unit} düşülecektir`
+                      ? `-${confirmingTrx.amount} ${confirmingTrx.unit}`
                       : confirmingTrx.type === 'STOK_ÇIKIŞI'
-                      ? `Stoka ${confirmingTrx.amount} ${confirmingTrx.unit} iade edilecektir`
-                      : 'Raf konumu eski haline getirilecektir'}
+                      ? `+${confirmingTrx.amount} ${confirmingTrx.unit}`
+                      : 'Raf konumu eski haline getirilir'}
                   </span>
                 </div>
               </div>
@@ -418,7 +418,7 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
                   value={rollbackNote}
                   onChange={(e) => setRollbackNote(e.target.value)}
                   placeholder="Geri alma gerekçesi giriniz..."
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-teal-600"
+                  className="w-full px-3 py-2.5 rounded-lg bg-white border border-slate-300 text-base sm:text-xs text-slate-900 focus:outline-none focus:border-teal-600"
                 />
               </div>
 
@@ -428,7 +428,7 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
                   type="checkbox"
                   checked={confirmConfirmed}
                   onChange={(e) => setConfirmConfirmed(e.target.checked)}
-                  className="mt-0.5 rounded border-slate-300 text-teal-700"
+                  className="mt-0.5 rounded border-slate-300 text-teal-700 w-4 h-4"
                 />
                 <span className="text-xs text-slate-700">
                   Stok bakiyesi etkisini ve parti bilgilerini kontrol ettim, geri alma işlemini{' '}
@@ -438,11 +438,11 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
             </div>
 
             {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-3 pt-1">
+            <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2 sm:gap-3 pt-1">
               <button
                 type="button"
                 onClick={() => setConfirmingTrx(null)}
-                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer text-center"
               >
                 Vazgeç
               </button>
@@ -450,10 +450,10 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
                 type="button"
                 disabled={!confirmConfirmed}
                 onClick={handleExecuteConfirmedRollback}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-teal-700 hover:bg-teal-800 text-white shadow-xs disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-teal-700 hover:bg-teal-800 text-white shadow-xs disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Evet, İşlemi Onayla ve Geri Al</span>
+                <span>İşlemi Onayla ve Geri Al</span>
               </button>
             </div>
           </div>

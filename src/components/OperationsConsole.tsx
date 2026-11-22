@@ -44,10 +44,10 @@ export const OperationsConsole: React.FC<OperationsConsoleProps> = ({
 
   // Form states
   const [selectedLot, setSelectedLot] = useState<string>('');
-  const [amount, setAmount] = useState<number>(10);
-  const [targetShelf, setTargetShelf] = useState<string>('RAF-A1-02-01');
-  const [entryLotNumber, setEntryLotNumber] = useState<string>('LOT-25-YENI');
-  const [entryExpiryDate, setEntryExpiryDate] = useState<string>('2027-12-31');
+  const [amount, setAmount] = useState<number>(1);
+  const [targetShelf, setTargetShelf] = useState<string>('');
+  const [entryLotNumber, setEntryLotNumber] = useState<string>('');
+  const [entryExpiryDate, setEntryExpiryDate] = useState<string>('');
   const [transactionNote, setTransactionNote] = useState<string>('');
 
   // Lock and feedback states
