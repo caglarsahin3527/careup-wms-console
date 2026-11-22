@@ -33,6 +33,7 @@ export const BarcodeScannerCard: React.FC<BarcodeScannerCardProps> = ({
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
 
   const scannerRef = useRef<any>(null);
+  const isHandlingScanRef = useRef(false);
   const readerElementId = 'careup-barcode-reader';
 
   // Refs to keep latest callbacks & products accessible inside scanner callback without restarting camera
@@ -63,9 +64,11 @@ export const BarcodeScannerCard: React.FC<BarcodeScannerCardProps> = ({
 
   const handleDecodedBarcode = useCallback(
     async (rawCode: string) => {
+      if (isHandlingScanRef.current) return;
       const cleaned = rawCode.trim();
       if (!cleaned) return;
 
+      isHandlingScanRef.current = true;
       setSearchInput(cleaned);
       setIsCameraOpen(false);
       await stopScanner();
@@ -83,6 +86,7 @@ export const BarcodeScannerCard: React.FC<BarcodeScannerCardProps> = ({
       } else if (onUnmatchedBarcodeRef.current) {
         onUnmatchedBarcodeRef.current(cleaned);
       }
+      isHandlingScanRef.current = false;
     },
     [stopScanner]
   );
@@ -98,6 +102,7 @@ export const BarcodeScannerCard: React.FC<BarcodeScannerCardProps> = ({
     async function initCamera() {
       setIsStartingCamera(true);
       setCameraError(null);
+      isHandlingScanRef.current = false;
 
       await stopScanner();
       if (isCancelled) return;
@@ -111,33 +116,50 @@ export const BarcodeScannerCard: React.FC<BarcodeScannerCardProps> = ({
           Html5QrcodeSupportedFormats.EAN_8,
           Html5QrcodeSupportedFormats.CODE_128,
           Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
           Html5QrcodeSupportedFormats.UPC_A,
           Html5QrcodeSupportedFormats.UPC_E,
           Html5QrcodeSupportedFormats.ITF,
+          Html5QrcodeSupportedFormats.CODABAR,
           Html5QrcodeSupportedFormats.QR_CODE,
           Html5QrcodeSupportedFormats.DATA_MATRIX,
         ];
 
         const html5QrCode = new Html5Qrcode(readerElementId, {
           formatsToSupport,
+          useBarCodeDetectorIfSupported: true,
           verbose: false,
         });
         scannerRef.current = html5QrCode;
 
-        const config = {
-          fps: 12,
-          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            const width = Math.max(180, Math.min(Math.floor(viewfinderWidth * 0.82), 340));
-            const height = Math.max(100, Math.min(Math.floor(viewfinderHeight * 0.5), 180));
-            return { width, height };
-          },
-          aspectRatio: 1.333334,
+        const computeQrBox = (viewfinderWidth: number, viewfinderHeight: number) => {
+          const width = Math.max(200, Math.floor(viewfinderWidth * 0.86));
+          const height = Math.max(100, Math.floor(viewfinderHeight * 0.52));
+          return { width, height };
+        };
+
+        // High-definition video constraints for sharp 1D barcode lines without aspect distortion
+        const hdScanConfig = {
+          fps: 20,
+          qrbox: computeQrBox,
+          disableFlip: false,
+          videoConstraints: {
+            facingMode: { ideal: facingMode },
+            width: { min: 640, ideal: 1280, max: 1920 },
+            height: { min: 480, ideal: 720, max: 1080 },
+          } as MediaTrackConstraints,
+        };
+
+        const basicScanConfig = {
+          fps: 15,
+          qrbox: computeQrBox,
+          disableFlip: false,
         };
 
         try {
           await html5QrCode.start(
             { facingMode },
-            config,
+            hdScanConfig,
             (decodedText: string) => {
               if (!isCancelled) {
                 handleDecodedBarcode(decodedText);
@@ -146,22 +168,45 @@ export const BarcodeScannerCard: React.FC<BarcodeScannerCardProps> = ({
             () => {}
           );
         } catch {
-          // Fallback to any available camera if preferred facingMode fails (e.g., on desktop webcam)
-          const devices = await Html5Qrcode.getCameras();
-          if (!devices || devices.length === 0) {
-            throw new Error('NO_CAMERA');
+          try {
+            await html5QrCode.start(
+              { facingMode },
+              basicScanConfig,
+              (decodedText: string) => {
+                if (!isCancelled) {
+                  handleDecodedBarcode(decodedText);
+                }
+              },
+              () => {}
+            );
+          } catch {
+            const devices = await Html5Qrcode.getCameras();
+            if (!devices || devices.length === 0) {
+              throw new Error('NO_CAMERA');
+            }
+            const preferredDevice =
+              devices.find((d) => /back|rear|environment|arka/i.test(d.label)) ||
+              devices[devices.length - 1];
+
+            await html5QrCode.start(
+              preferredDevice.id,
+              basicScanConfig,
+              (decodedText: string) => {
+                if (!isCancelled) {
+                  handleDecodedBarcode(decodedText);
+                }
+              },
+              () => {}
+            );
           }
-          await html5QrCode.start(
-            devices[0].id,
-            config,
-            (decodedText: string) => {
-              if (!isCancelled) {
-                handleDecodedBarcode(decodedText);
-              }
-            },
-            () => {}
-          );
         }
+
+        // Apply continuous autofocus if hardware camera track supports it
+        try {
+          await html5QrCode.applyVideoConstraints({
+            advanced: [{ focusMode: 'continuous' } as any],
+          });
+        } catch {}
 
         if (!isCancelled) {
           setIsStartingCamera(false);
@@ -272,7 +317,13 @@ export const BarcodeScannerCard: React.FC<BarcodeScannerCardProps> = ({
         </div>
 
         {/* Camera Viewfinder Area */}
-        <div className="relative w-full aspect-[16/10] sm:aspect-[4/3] rounded-xl bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden">
+        <div
+          className={`relative w-full rounded-xl overflow-hidden ${
+            !isCameraOpen
+              ? 'aspect-[16/10] sm:aspect-[4/3] bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center'
+              : 'min-h-[240px] bg-slate-950 border border-slate-800'
+          }`}
+        >
           {!isCameraOpen ? (
             <div className="flex flex-col items-center justify-center p-4 sm:p-6 text-center">
               <div className="w-12 sm:w-14 h-12 sm:h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center mb-2 sm:mb-3 text-teal-700 shadow-2xs">
@@ -294,12 +345,9 @@ export const BarcodeScannerCard: React.FC<BarcodeScannerCardProps> = ({
               </button>
             </div>
           ) : (
-            <div className="relative w-full h-full bg-slate-950 flex flex-col items-center justify-center overflow-hidden">
-              {/* Live HTML5-QRCode video mount point */}
-              <div
-                id={readerElementId}
-                className="w-full h-full [&_video]:w-full [&_video]:h-full [&_video]:object-cover"
-              />
+            <div className="relative w-full bg-slate-950 overflow-hidden">
+              {/* Live HTML5-QRCode video mount point - keep native video aspect ratio intact for accurate canvas sampling */}
+              <div id={readerElementId} className="w-full" />
 
               {/* Top status overlay */}
               <div className="absolute top-2.5 left-3 right-3 z-10 flex items-center justify-between text-[11px] sm:text-xs text-teal-300 font-mono bg-slate-900/75 backdrop-blur-xs px-2.5 py-1 rounded-lg border border-slate-700/80 pointer-events-none">
@@ -346,7 +394,7 @@ export const BarcodeScannerCard: React.FC<BarcodeScannerCardProps> = ({
               {!isStartingCamera && !cameraError && (
                 <div className="absolute bottom-2.5 left-3 right-3 z-10 text-center pointer-events-none">
                   <span className="inline-block bg-slate-900/75 backdrop-blur-xs text-slate-200 text-[11px] px-3 py-1 rounded-lg border border-slate-700/80">
-                    Barkodu çerçeve içerisine hizalayın, otomatik okunacaktır
+                    Barkodu çerçeve içerisine yatay hizalayın, otomatik okunacaktır
                   </span>
                 </div>
               )}
