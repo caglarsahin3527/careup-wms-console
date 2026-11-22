@@ -20,7 +20,6 @@ interface AuditTrailProps {
   currentRole: UserRole;
   onRollbackTransaction: (transactionId: string, customNote?: string) => void;
   onBackHome?: () => void;
-  onRoleChange?: (role: UserRole) => void;
 }
 
 export const AuditTrail: React.FC<AuditTrailProps> = ({

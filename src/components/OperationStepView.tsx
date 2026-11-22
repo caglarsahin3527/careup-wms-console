@@ -43,7 +43,6 @@ interface OperationStepViewProps {
   isOnline: boolean;
   onBackHome: () => void;
   onSwitchMode: (newMode: ActiveOperationMode) => void;
-  onRoleChange?: (role: UserRole) => void;
   onExecuteTransaction: (params: {
     type: 'STOK_GİRİŞİ' | 'STOK_ÇIKIŞI' | 'TRANSFER' | 'SAYIM_DÜZELTME';
     lotNumber: string;

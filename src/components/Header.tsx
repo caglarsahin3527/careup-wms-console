@@ -3,21 +3,16 @@
 import React from 'react';
 import {
   Package,
-  User,
-  ShieldCheck,
-  Settings,
   Wifi,
   WifiOff,
   Home,
   LogOut,
-  ChevronDown,
 } from 'lucide-react';
 import { UserRole, WarehouseUser } from '../data/mockData';
 
 interface HeaderProps {
   currentRole: UserRole;
   currentUser?: WarehouseUser | null;
-  onRoleChange?: (role: UserRole) => void;
   onLogout?: () => void;
   isOnline: boolean;
   onToggleNetwork: () => void;
@@ -30,7 +25,6 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   currentRole,
   currentUser,
-  onRoleChange,
   onLogout,
   isOnline,
   onToggleNetwork,
@@ -70,100 +64,6 @@ export const Header: React.FC<HeaderProps> = ({
               <Home className="w-4 h-4 text-teal-700" />
               <span className="hidden lg:inline">Ana Ekran</span>
             </button>
-          )}
-
-          {/* Desktop 3-Tier Role Switcher (Hidden on Mobile) */}
-          {onRoleChange && (
-            <div
-              className="hidden md:flex items-center bg-slate-100 border border-slate-200 rounded-xl p-1"
-              role="group"
-              aria-label="Aktif Kullanıcı Rolü"
-            >
-              <button
-                type="button"
-                onClick={() => onRoleChange('Depo Çalışanı')}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                  currentRole === 'Depo Çalışanı'
-                    ? 'bg-teal-700 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <User className="w-3.5 h-3.5" />
-                <span>Depo Çalışanı</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onRoleChange('Depo Sorumlusu')}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                  currentRole === 'Depo Sorumlusu'
-                    ? 'bg-amber-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Depo Sorumlusu</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onRoleChange('Admin')}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                  currentRole === 'Admin'
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Settings className="w-3.5 h-3.5" />
-                <span>Admin</span>
-              </button>
-            </div>
-          )}
-
-          {/* Mobile Role Switcher Pill with Native Dropdown (Visible on Mobile only) */}
-          {onRoleChange && (
-            <div className="md:hidden relative flex items-center">
-              <label htmlFor="mobileRoleSelect" className="sr-only">
-                Kullanıcı Rolü Değiştir
-              </label>
-              <div
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-2xs ${
-                  currentRole === 'Admin'
-                    ? 'bg-slate-900 text-white border-slate-900'
-                    : currentRole === 'Depo Sorumlusu'
-                    ? 'bg-amber-50 text-amber-900 border-amber-300'
-                    : 'bg-teal-50 text-teal-900 border-teal-200'
-                }`}
-              >
-                {currentRole === 'Admin' ? (
-                  <Settings className="w-3.5 h-3.5 text-teal-400" />
-                ) : currentRole === 'Depo Sorumlusu' ? (
-                  <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-                ) : (
-                  <User className="w-3.5 h-3.5 text-teal-700" />
-                )}
-                <span className="truncate max-w-[85px]">
-                  {currentRole === 'Depo Çalışanı'
-                    ? 'Çalışan'
-                    : currentRole === 'Depo Sorumlusu'
-                    ? 'Sorumlu'
-                    : 'Admin'}
-                </span>
-                <ChevronDown className="w-3 h-3 opacity-60" />
-              </div>
-
-              {/* Native invisible select covering the pill for seamless mobile OS picker */}
-              <select
-                id="mobileRoleSelect"
-                value={currentRole}
-                onChange={(e) => onRoleChange(e.target.value as UserRole)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-base"
-              >
-                <option value="Depo Çalışanı">Depo Çalışanı (Operatör)</option>
-                <option value="Depo Sorumlusu">Depo Sorumlusu (Şef)</option>
-                <option value="Admin">Admin (Sistem Yöneticisi)</option>
-              </select>
-            </div>
           )}
 
           {/* Network Status Toggle Button */}

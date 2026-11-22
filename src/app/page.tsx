@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   User,
   Home,
+  PackagePlus,
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { LoginScreen } from '@/components/LoginScreen';
@@ -26,6 +27,7 @@ import { OperationStepView, ActiveOperationMode } from '@/components/OperationSt
 import { AuditTrail } from '@/components/AuditTrail';
 import { AdminPanel } from '@/components/AdminPanel';
 import { InventoryModal } from '@/components/InventoryModal';
+import { ProductEntryPanel } from '@/components/ProductEntryPanel';
 import {
   Product,
   Transaction,
@@ -43,7 +45,7 @@ import {
   adminDeleteStaff,
 } from '@/lib/supabase';
 
-type ScreenState = 'HOME' | ActiveOperationMode | 'AUDIT_LOG' | 'ADMIN_PANEL';
+type ScreenState = 'HOME' | ActiveOperationMode | 'AUDIT_LOG' | 'ADMIN_PANEL' | 'PRODUCT_ENTRY';
 
 export default function WmsDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -69,6 +71,9 @@ export default function WmsDashboard() {
       setActiveScreen('HOME');
     }
     if (activeScreen === 'SAYIM_DÜZELTME' && currentRole === 'Depo Çalışanı') {
+      setActiveScreen('HOME');
+    }
+    if (activeScreen === 'PRODUCT_ENTRY' && currentRole === 'Depo Çalışanı') {
       setActiveScreen('HOME');
     }
   }, [activeScreen, currentRole]);
@@ -524,6 +529,81 @@ export default function WmsDashboard() {
       });
   };
 
+  // Depo Sorumlusu (ve Admin) Ürün Girişi: Önce veritabanına yazılır, başarılı olursa yerel duruma eklenir.
+  // Böylece RLS veya benzersizlik hatalarında kullanıcıya sahte "başarılı" mesajı gösterilmez.
+  const handleCreateProductRecord = async (
+    newProduct: Product
+  ): Promise<{ success: boolean; error?: string; warning?: string }> => {
+    if (currentRole !== 'Depo Sorumlusu' && currentRole !== 'Admin') {
+      return {
+        success: false,
+        error: 'Yetkisiz İşlem: Ürün kartı girişi yalnızca Depo Sorumlusu ve Admin rollerine aittir.',
+      };
+    }
+    if (!isOnline) {
+      return {
+        success: false,
+        error: 'Çevrimdışı moddasınız. Ürün kartı kaydı için veritabanı bağlantısı gereklidir.',
+      };
+    }
+
+    const sb = getSupabaseClient(currentRole);
+    const { error: productError } = await sb.from('products').insert({
+      id: newProduct.id,
+      sku: newProduct.sku,
+      barcode: newProduct.barcode,
+      name: newProduct.name,
+      subtitle: newProduct.subtitle,
+      form: newProduct.form,
+      unit: newProduct.unit,
+      units_per_carton: newProduct.unitsPerCarton,
+      category: newProduct.category,
+      min_critical_stock: newProduct.minCriticalStock,
+      zone: newProduct.zone,
+      storage_condition: newProduct.storageCondition,
+    });
+
+    if (productError) {
+      const msg = productError.message || '';
+      if (productError.code === '42501' || /row-level security/i.test(msg)) {
+        return {
+          success: false,
+          error:
+            'Veritabanı yetki politikası (RLS) bu rolün ürün kartı eklemesine izin vermiyor. Veritabanında Depo Sorumlusu için ürün ekleme izni tanımlanmalıdır.',
+        };
+      }
+      if (productError.code === '23505') {
+        return { success: false, error: 'Bu SKU veya barkod veritabanında zaten kayıtlı.' };
+      }
+      return { success: false, error: `Veritabanı hatası: ${msg}` };
+    }
+
+    let savedProduct = newProduct;
+    let batchWarning: string | undefined;
+    if (newProduct.batches.length > 0) {
+      const b = newProduct.batches[0];
+      const { error: batchError } = await sb.from('batches').insert({
+        batch_id: b.batchId,
+        product_id: newProduct.id,
+        lot_number: b.lotNumber,
+        expiry_date: b.expiryDate,
+        quantity: b.quantity,
+        shelf_location: b.shelfLocation,
+        is_quarantine: b.isQuarantine,
+      });
+      if (batchError) {
+        savedProduct = { ...newProduct, batches: [] };
+        batchWarning = `Ürün kartı kaydedildi ancak açılış partisi yazılamadı: ${batchError.message}`;
+      }
+    }
+
+    const next = [savedProduct, ...products];
+    persistData(next, transactions);
+    setSelectedProduct(savedProduct);
+
+    return batchWarning ? { success: true, warning: batchWarning } : { success: true };
+  };
+
   const handleUpdateProductThreshold = (productId: string, newThreshold: number) => {
     if (currentRole !== 'Admin') return;
     const next = products.map((p) =>
@@ -644,6 +724,8 @@ export default function WmsDashboard() {
 
   const handleDeleteUser = async (userId: string) => {
     if (currentRole !== 'Admin') return;
+    const target = users.find((u) => u.id === userId);
+    if (target?.role === 'Admin') return;
     const next = users.filter((u) => u.id !== userId);
     persistData(products, transactions, shelves, next);
 
@@ -674,6 +756,8 @@ export default function WmsDashboard() {
 
   const handleUpdateUserRole = (userId: string, newRole: UserRole) => {
     if (currentRole !== 'Admin') return;
+    const target = users.find((u) => u.id === userId);
+    if (target?.role === 'Admin') return; // Admin rolü sabittir
     const next = users.map((u) => (u.id === userId ? { ...u, role: newRole } : u));
     persistData(products, transactions, shelves, next);
 
@@ -818,6 +902,17 @@ export default function WmsDashboard() {
       return [
         ...baseCards,
         {
+          id: 'PRODUCT_ENTRY' as ScreenState,
+          title: 'Ürün Girişi (Yeni Ürün Kartı)',
+          description:
+            'Depoya ilk kez gelen ürünün kartını SKU, barkod, form ve açılış partisi bilgileriyle veritabanına kaydedin.',
+          icon: PackagePlus,
+          badge: `${products.length} Kayıtlı Ürün`,
+          iconTheme: 'text-teal-700 bg-teal-50 border-teal-200',
+          hoverBorder: 'hover:border-teal-500',
+          onClick: () => setActiveScreen('PRODUCT_ENTRY'),
+        },
+        {
           id: 'SAYIM_DÜZELTME' as ScreenState,
           title: 'Sayım & Stok Farkı Düzeltme',
           description:
@@ -898,11 +993,6 @@ export default function WmsDashboard() {
       <Header
         currentRole={currentRole}
         currentUser={currentUser}
-        onRoleChange={
-          currentUser?.role === 'Admin'
-            ? (role) => setCurrentUser((prev) => (prev ? { ...prev, role } : null))
-            : undefined
-        }
         onLogout={handleLogout}
         isOnline={isOnline}
         onToggleNetwork={handleToggleNetwork}
@@ -959,7 +1049,7 @@ export default function WmsDashboard() {
                       {currentRole === 'Admin'
                         ? '• Ürün kataloğu, raf konumları, personel ve tüm depo operasyonlarını yönetebilirsiniz.'
                         : currentRole === 'Depo Sorumlusu'
-                        ? '• Stok hareketleri, fiziksel sayım düzeltme ve onaylı işlem geri alma yetkiniz açıktır.'
+                        ? '• Ürün girişi, stok hareketleri, fiziksel sayım düzeltme ve onaylı işlem geri alma yetkiniz açıktır.'
                         : '• Barkod sorgulama, mal kabul, FEFO sevkiyat ve raf transferi işlemleri yapabilirsiniz.'}
                     </span>
                   </div>
@@ -1057,6 +1147,16 @@ export default function WmsDashboard() {
                   >
                     <Settings className="w-4 h-4" />
                     <span>Admin Paneline Git &amp; İlk Ürün/Rafı Tanımla</span>
+                  </button>
+                )}
+                {currentRole === 'Depo Sorumlusu' && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveScreen('PRODUCT_ENTRY')}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-sm font-semibold transition-all shadow-xs cursor-pointer"
+                  >
+                    <PackagePlus className="w-4 h-4" />
+                    <span>İlk Ürün Kartını Gir</span>
                   </button>
                 )}
               </div>
@@ -1215,6 +1315,15 @@ export default function WmsDashboard() {
             transactions={transactions}
             currentRole={currentRole}
             onRollbackTransaction={handleRollbackTransaction}
+            onBackHome={() => setActiveScreen('HOME')}
+          />
+        ) : activeScreen === 'PRODUCT_ENTRY' ? (
+          <ProductEntryPanel
+            currentRole={currentRole}
+            products={products}
+            shelves={shelves}
+            isOnline={isOnline}
+            onCreateProduct={handleCreateProductRecord}
             onBackHome={() => setActiveScreen('HOME')}
           />
         ) : activeScreen === 'ADMIN_PANEL' ? (

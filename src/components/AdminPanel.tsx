@@ -47,7 +47,6 @@ interface AdminPanelProps {
   onUpdateSystemRules: (newRules: SystemRules) => void;
   onResetSystemData: () => void;
   onBackHome: () => void;
-  onRoleChange?: (role: UserRole) => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -1137,18 +1136,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      <select
-                        value={u.role}
-                        onChange={(e) => {
-                          onUpdateUserRole(u.id, e.target.value as UserRole);
-                          showNotice(`${u.name} kullanıcısının rolü "${e.target.value}" olarak güncellendi.`);
-                        }}
-                        className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 text-xs font-semibold text-slate-800"
-                      >
-                        <option value="Depo Çalışanı">Depo Çalışanı</option>
-                        <option value="Depo Sorumlusu">Depo Sorumlusu</option>
-                        <option value="Admin">Admin</option>
-                      </select>
+                      {u.role === 'Admin' ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold shadow-2xs select-none">
+                          <Settings className="w-3.5 h-3.5 text-teal-400" />
+                          <span>Admin (Sabit)</span>
+                        </span>
+                      ) : (
+                        <select
+                          value={u.role}
+                          onChange={(e) => {
+                            onUpdateUserRole(u.id, e.target.value as UserRole);
+                            showNotice(`${u.name} kullanıcısının rolü "${e.target.value}" olarak güncellendi.`);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 text-xs font-semibold text-slate-800"
+                        >
+                          <option value="Depo Çalışanı">Depo Çalışanı</option>
+                          <option value="Depo Sorumlusu">Depo Sorumlusu</option>
+                        </select>
+                      )}
 
                       <button
                         type="button"
@@ -1159,15 +1164,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <KeyRound className="w-3.5 h-3.5" />
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => onToggleUserStatus(u.id)}
-                        className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-xs font-medium text-slate-700 cursor-pointer"
-                      >
-                        {u.isActive ? 'Pasife Al' : 'Aktifleştir'}
-                      </button>
+                      {u.role !== 'Admin' && (
+                        <button
+                          type="button"
+                          onClick={() => onToggleUserStatus(u.id)}
+                          className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-xs font-medium text-slate-700 cursor-pointer"
+                        >
+                          {u.isActive ? 'Pasife Al' : 'Aktifleştir'}
+                        </button>
+                      )}
 
-                      {onDeleteUser && (
+                      {onDeleteUser && u.role !== 'Admin' && (
                         <button
                           type="button"
                           onClick={() => {

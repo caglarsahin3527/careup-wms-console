@@ -51,6 +51,6 @@ Karanlık ve basık şablonlar yerine; takviye edici gıda ve sağlık ürünler
 
 ## 4. Rol Bazlı Ekran Kurgusu
 
-1. **Üst Operasyon Barı (Header)**: Marka kimliği, hızlı envanter kataloğu erişimi, ağ/senkronizasyon durumu ve 3 kademeli rol geçiş anahtarı (`Depo Çalışanı`, `Depo Sorumlusu`, `Admin`).
+1. **Üst Operasyon Barı (Header)**: Marka kimliği, hızlı envanter kataloğu erişimi, ağ/senkronizasyon durumu ve güvenli oturum kapatma kontrolü. (Kullanıcı rolleri veritabanı/oturum bazlı sabit olup üst bardan rol geçiş anahtarı kaldırılmıştır; Admin rolü sabittir).
 2. **Operasyonel Özet & Görev Kartları**: Depodaki toplam ürün çeşidi, kritik stoktaki ürünler, miadı yaklaşan partiler ve aktif raf sayısı üst bilgi şeridinde özetlenir; altında görev odaklı modül kartları yer alır.
 3. **Admin Yönetim Paneli**: Yalnızca `Admin` rolünde tam yetkiyle çalışan; yeni ürün kartı açma, kritik stok eşiği güncelleme, raf/ambar konumu tanımlama ve personel-rol yönetimi sekmelerini barındıran yönetim merkezi.
