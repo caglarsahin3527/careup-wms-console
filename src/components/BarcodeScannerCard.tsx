@@ -1,7 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Camera, Search, ArrowRight, Barcode, XCircle, QrCode } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Camera,
+  Search,
+  ArrowRight,
+  Barcode,
+  XCircle,
+  QrCode,
+  AlertCircle,
+  RefreshCw,
+} from 'lucide-react';
 import { Product } from '../data/mockData';
 
 interface BarcodeScannerCardProps {
@@ -19,6 +28,173 @@ export const BarcodeScannerCard: React.FC<BarcodeScannerCardProps> = ({
 }) => {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [searchInput, setSearchInput] = useState('');
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isStartingCamera, setIsStartingCamera] = useState(false);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+
+  const scannerRef = useRef<any>(null);
+  const readerElementId = 'careup-barcode-reader';
+
+  // Refs to keep latest callbacks & products accessible inside scanner callback without restarting camera
+  const productsRef = useRef<Product[]>(products);
+  const onSelectProductRef = useRef(onSelectProduct);
+  const onUnmatchedBarcodeRef = useRef(onUnmatchedBarcode);
+
+  useEffect(() => {
+    productsRef.current = products;
+    onSelectProductRef.current = onSelectProduct;
+    onUnmatchedBarcodeRef.current = onUnmatchedBarcode;
+  }, [products, onSelectProduct, onUnmatchedBarcode]);
+
+  const stopScanner = useCallback(async () => {
+    const instance = scannerRef.current;
+    scannerRef.current = null;
+    if (instance) {
+      try {
+        if (instance.isScanning) {
+          await instance.stop();
+        }
+      } catch {}
+      try {
+        instance.clear();
+      } catch {}
+    }
+  }, []);
+
+  const handleDecodedBarcode = useCallback(
+    async (rawCode: string) => {
+      const cleaned = rawCode.trim();
+      if (!cleaned) return;
+
+      setSearchInput(cleaned);
+      setIsCameraOpen(false);
+      await stopScanner();
+
+      const query = cleaned.toLowerCase();
+      const found = productsRef.current.find(
+        (p) =>
+          p.barcode.toLowerCase() === query ||
+          p.sku.toLowerCase() === query ||
+          p.name.toLowerCase().includes(query)
+      );
+
+      if (found) {
+        onSelectProductRef.current(found);
+      } else if (onUnmatchedBarcodeRef.current) {
+        onUnmatchedBarcodeRef.current(cleaned);
+      }
+    },
+    [stopScanner]
+  );
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (!isCameraOpen) {
+      stopScanner();
+      return;
+    }
+
+    async function initCamera() {
+      setIsStartingCamera(true);
+      setCameraError(null);
+
+      await stopScanner();
+      if (isCancelled) return;
+
+      try {
+        const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
+        if (isCancelled) return;
+
+        const formatsToSupport = [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.ITF,
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.DATA_MATRIX,
+        ];
+
+        const html5QrCode = new Html5Qrcode(readerElementId, {
+          formatsToSupport,
+          verbose: false,
+        });
+        scannerRef.current = html5QrCode;
+
+        const config = {
+          fps: 12,
+          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+            const width = Math.max(180, Math.min(Math.floor(viewfinderWidth * 0.82), 340));
+            const height = Math.max(100, Math.min(Math.floor(viewfinderHeight * 0.5), 180));
+            return { width, height };
+          },
+          aspectRatio: 1.333334,
+        };
+
+        try {
+          await html5QrCode.start(
+            { facingMode },
+            config,
+            (decodedText: string) => {
+              if (!isCancelled) {
+                handleDecodedBarcode(decodedText);
+              }
+            },
+            () => {}
+          );
+        } catch {
+          // Fallback to any available camera if preferred facingMode fails (e.g., on desktop webcam)
+          const devices = await Html5Qrcode.getCameras();
+          if (!devices || devices.length === 0) {
+            throw new Error('NO_CAMERA');
+          }
+          await html5QrCode.start(
+            devices[0].id,
+            config,
+            (decodedText: string) => {
+              if (!isCancelled) {
+                handleDecodedBarcode(decodedText);
+              }
+            },
+            () => {}
+          );
+        }
+
+        if (!isCancelled) {
+          setIsStartingCamera(false);
+        }
+      } catch (err: any) {
+        if (isCancelled) return;
+        setIsStartingCamera(false);
+        const msg = String(err?.message || err || '');
+        if (
+          msg.includes('NotAllowedError') ||
+          msg.includes('Permission') ||
+          msg.includes('permission')
+        ) {
+          setCameraError(
+            'Kamera erişim izni reddedildi. Lütfen tarayıcı adres çubuğundan kamera iznini aktif hale getirin.'
+          );
+        } else if (msg.includes('NO_CAMERA') || msg.includes('NotFoundError')) {
+          setCameraError('Cihazınızda kullanılabilir bir kamera bulunamadı.');
+        } else {
+          setCameraError(
+            'Kamera başlatılamadı. Tarayıcınızın kamera iznine sahip olduğundan ve güvenli bağlantı (HTTPS/localhost) kullandığınızdan emin olun.'
+          );
+        }
+      }
+    }
+
+    initCamera();
+
+    return () => {
+      isCancelled = true;
+      stopScanner();
+    };
+  }, [isCameraOpen, facingMode, handleDecodedBarcode, stopScanner]);
 
   const handleManualSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,27 +232,43 @@ export const BarcodeScannerCard: React.FC<BarcodeScannerCardProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsCameraOpen(!isCameraOpen)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
-              isCameraOpen
-                ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
-                : 'bg-teal-700 hover:bg-teal-800 text-white border-teal-700'
-            }`}
-          >
-            {isCameraOpen ? (
-              <>
-                <XCircle className="w-3.5 h-3.5" />
-                <span>Kapat</span>
-              </>
-            ) : (
-              <>
-                <Camera className="w-3.5 h-3.5" />
-                <span>Kamera Aç</span>
-              </>
+          <div className="flex items-center gap-1.5">
+            {isCameraOpen && (
+              <button
+                type="button"
+                onClick={() =>
+                  setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'))
+                }
+                title="Kamera Değiştir (Ön / Arka)"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-all cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Çevir</span>
+              </button>
             )}
-          </button>
+
+            <button
+              type="button"
+              onClick={() => setIsCameraOpen(!isCameraOpen)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                isCameraOpen
+                  ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
+                  : 'bg-teal-700 hover:bg-teal-800 text-white border-teal-700'
+              }`}
+            >
+              {isCameraOpen ? (
+                <>
+                  <XCircle className="w-3.5 h-3.5" />
+                  <span>Kapat</span>
+                </>
+              ) : (
+                <>
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Kamera Aç</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Camera Viewfinder Area */}
@@ -102,36 +294,62 @@ export const BarcodeScannerCard: React.FC<BarcodeScannerCardProps> = ({
               </button>
             </div>
           ) : (
-            <div className="inset-0 w-full h-full flex flex-col items-center justify-between p-3 sm:p-4 bg-slate-900 text-white">
-              <div className="w-full flex items-center justify-between text-[11px] sm:text-xs text-teal-300 font-mono">
+            <div className="relative w-full h-full bg-slate-950 flex flex-col items-center justify-center overflow-hidden">
+              {/* Live HTML5-QRCode video mount point */}
+              <div
+                id={readerElementId}
+                className="w-full h-full [&_video]:w-full [&_video]:h-full [&_video]:object-cover"
+              />
+
+              {/* Top status overlay */}
+              <div className="absolute top-2.5 left-3 right-3 z-10 flex items-center justify-between text-[11px] sm:text-xs text-teal-300 font-mono bg-slate-900/75 backdrop-blur-xs px-2.5 py-1 rounded-lg border border-slate-700/80 pointer-events-none">
                 <span>OPTİK OKUYUCU AKTİF</span>
-                <span className="animate-pulse text-emerald-400">● TARANIYOR</span>
+                <span className="animate-pulse text-emerald-400">● CANLI KAMERA</span>
               </div>
 
-              {/* Laser Frame */}
-              <div className="relative w-[90%] sm:w-[88%] h-[52%] sm:h-[48%] border-2 border-teal-400 rounded-xl overflow-hidden flex items-center justify-center bg-slate-950/50">
-                <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-teal-400 to-transparent shadow-[0_0_10px_#2dd4bf] animate-laser" />
-                <span className="text-[11px] sm:text-xs text-slate-200 px-3 text-center">
-                  Kameraya okutulacak ürünü seçin:
-                </span>
-              </div>
+              {/* Loading indicator while camera permission/stream initializes */}
+              {isStartingCamera && !cameraError && (
+                <div className="absolute inset-0 z-20 bg-slate-900/90 flex flex-col items-center justify-center p-4 text-center text-white">
+                  <div className="w-8 h-8 border-2 border-teal-400 border-t-transparent rounded-full animate-spin mb-2.5" />
+                  <p className="text-xs font-semibold text-slate-200">
+                    Kamera başlatılıyor...
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Tarayıcınız izin isterse lütfen &ldquo;İzin Ver&rdquo; seçeneğine dokunun.
+                  </p>
+                </div>
+              )}
 
-              {/* Simulated instant scan buttons inside camera */}
-              <div className="w-full grid grid-cols-2 gap-1.5">
-                {products.slice(0, 4).map((p) => (
+              {/* Camera permission or hardware error state */}
+              {cameraError && (
+                <div className="absolute inset-0 z-20 bg-slate-900/95 flex flex-col items-center justify-center p-4 text-center text-white">
+                  <AlertCircle className="w-8 h-8 text-rose-400 mb-2" />
+                  <p className="text-xs font-bold text-rose-200 mb-1">Kamera Erişimi Sağlanamadı</p>
+                  <p className="text-[11px] text-slate-300 max-w-xs mb-3 leading-relaxed">
+                    {cameraError}
+                  </p>
                   <button
-                    key={p.id}
                     type="button"
                     onClick={() => {
-                      onSelectProduct(p);
+                      setCameraError(null);
                       setIsCameraOpen(false);
+                      setTimeout(() => setIsCameraOpen(true), 100);
                     }}
-                    className="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-teal-700 border border-slate-700 text-[11px] sm:text-xs text-white truncate text-left transition-all cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-600 text-xs font-semibold text-white cursor-pointer"
                   >
-                    {p.name.replace('Care Up ', '')}
+                    Tekrar Dene
                   </button>
-                ))}
-              </div>
+                </div>
+              )}
+
+              {/* Bottom guidance caption */}
+              {!isStartingCamera && !cameraError && (
+                <div className="absolute bottom-2.5 left-3 right-3 z-10 text-center pointer-events-none">
+                  <span className="inline-block bg-slate-900/75 backdrop-blur-xs text-slate-200 text-[11px] px-3 py-1 rounded-lg border border-slate-700/80">
+                    Barkodu çerçeve içerisine hizalayın, otomatik okunacaktır
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
