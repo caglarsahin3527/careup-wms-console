@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PAÜ CENG 409 • Mobil Depo ve Stok Takip Sistemi</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top-shell" aria-label="Sistem Üst Çubuğu">
+    <div class="shell-inner">
+      <div class="brand-cluster">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
+            <path d="M3 7l9-4 9 4-9 4-9-4z"/>
+            <path d="M3 12l9 4 9-4"/>
+            <path d="M3 17l9 4 9-4"/>
+          </svg>
+        </div>
+        <div class="brand-copy">
+          <h1 class="app-title">PAÜ Depo ve Stok Konsolu</h1>
+          <span class="synthetic-badge" title="CENG 409 proje verileri sentetiktir">Sentetik Demo Verisi</span>
+        </div>
+      </div>
+
+      <div class="shell-controls">
+        <div class="control-group" role="group" aria-label="Aktif Kullanıcı Rolü">
+          <span class="control-label">Rol (RBAC)</span>
+          <div class="role-toggle" id="roleToggle">
+            <button type="button" class="role-btn active" data-role="staff" aria-pressed="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="8" r="4"/>
+                <path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/>
+              </svg>
+              <span>Depo Personeli</span>
+            </button>
+            <button type="button" class="role-btn" data-role="supervisor" aria-pressed="false">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M12 2l7 4v6c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-4z"/>
+                <path d="M9 12l2 2 4-4"/>
+              </svg>
+              <span>Depo Sorumlusu</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label class="control-label" for="zoneSelect">Aktif Ambar</label>
+          <select id="zoneSelect" class="shell-select">
+            <option value="ALL">Tüm Ambarlar (A1, B2, C1)</option>
+            <option value="A1">A1 • Hammadde Ambarı</option>
+            <option value="B2">B2 • Yarı Mamul Raf Alanı</option>
+            <option value="C1">C1 • Sevkiyat &amp; Dağıtım</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <span class="control-label">Bağlantı &amp; Senkron</span>
+          <button type="button" id="networkToggleBtn" class="network-btn online" aria-pressed="false">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="networkLabel">Çevrimiçi</span>
+            <span id="queueCounter" class="queue-pill hidden">0 kuyrukta</span>
+          </button>
+        </div>
+
+        <button type="button" id="securityInfoBtn" class="shell-action-btn" aria-expanded="false" aria-controls="architectureDrawer">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <rect x="4" y="11" width="16" height="10" rx="1"/>
+            <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+          </svg>
+          <span>RLS &amp; Kalıcılık</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="architectureDrawer" class="arch-drawer hidden" role="region" aria-label="Veritabanı ve Güvenlik Mimarisi Özeti">
+      <div class="arch-inner">
+        <div class="arch-item">
+          <strong>Aktif Kalıcılık Katmanı</strong>
+          <span>Tarayıcı <code class="mono">localStorage</code> üzerinde kalıcı durum korunur; sayfa yenileme veya kapatıp açma sonrası stok bakiyeleri ve hareket geçmişi kaybolmaz.</span>
+        </div>
+        <div class="arch-item">
+          <strong>Yol A (Supabase + Vercel) Hazırlığı</strong>
+          <span>Tablo şeması: <code class="mono">products</code>, <code class="mono">warehouses</code>, <code class="mono">stock_balances</code>, <code class="mono">stock_transactions</code>, <code class="mono">app_users</code>. İstemci tarafında yalnızca <code class="mono">anon</code> yayınlanabilir anahtar modeli öngörülür; <code class="mono">service_role</code> anahtarı kesinlikle bulunmaz.</span>
+        </div>
+        <div class="arch-item">
+          <strong>Yetki Sınırı (Row Level Security)</strong>
+          <span>Aktif Kullanıcı: <span id="drawerActorName" class="mono">Ahmet Yılmaz (Depo Personeli)</span> — Sayım düzeltme ve bekleyen transfer kabulleri sunucu RLS politikasıyla yalnızca <code class="mono">supervisor</code> rolüne açıktır.</span>
+        </div>
+        <button type="button" id="resetDemoBtn" class="btn-secondary-dark">Sentetik Veriyi Sıfırla</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="workspace-grid">
+    <!-- Left Rail: Product Search, Simulated Camera Barcode/QR Scanner & SKU Roster -->
+    <aside class="catalog-panel" aria-label="Ürün Arama ve Raf Listesi">
+      <div class="panel-header-row">
+        <h2 class="section-heading">Ürün ve Raf Seçimi</h2>
+        <span class="count-badge mono" id="productCountBadge">6 SKU</span>
+      </div>
+
+      <div class="search-stack">
+        <div class="search-input-wrap">
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"/>
+            <path d="M20 20l-4-4"/>
+          </svg>
+          <input type="search" id="searchInput" class="search-input" placeholder="SKU (URN-1042), ürün adı veya raf kodu..." aria-label="Ürün kodu, adı veya raf kodu ile ara">
+          <button type="button" id="clearSearchBtn" class="icon-clear-btn hidden" aria-label="Aramayı temizle">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <button type="button" id="toggleScannerBtn" class="scanner-toggle-btn" aria-expanded="false" aria-controls="scannerDrawer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M4 7V4h3M17 4h3v3M4 17v3h3M17 20h3v-3"/>
+            <path d="M7 12h10"/>
+          </svg>
+          <span>Kamera Barkod / QR Okut</span>
+        </button>
+      </div>
+
+      <section id="scannerDrawer" class="scanner-drawer hidden" aria-label="Kamera Barkod ve QR Simülatörü">
+        <div class="scanner-viewfinder">
+          <div class="scanner-reticle" aria-hidden="true"></div>
+          <span class="scanner-caption mono">KAMERA BARKOD OKUYUCU (SİMÜLASYON)</span>
+        </div>
+        <div class="scanner-actions">
+          <button type="button" class="scan-sim-btn" data-scan="URN-1042">Geçerli Okut: URN-1042</button>
+          <button type="button" class="scan-sim-btn" data-scan="URN-2019">Kritik Ürün: URN-2019</button>
+          <button type="button" class="scan-sim-btn scan-sim-err" data-scan="UNREADABLE">Yırtık Barkod (Okunamadı)</button>
+          <button type="button" class="scan-sim-btn scan-sim-err" data-scan="URN-9999">Tanımsız SKU (URN-9999)</button>
+        </div>
+      </section>
+
+      <div class="filter-bar" role="tablist" aria-label="Stok Durum Filtreleri">
+        <button type="button" class="filter-chip active" data-filter="all" role="tab" aria-selected="true">Tümü</button>
+        <button type="button" class="filter-chip" data-filter="critical" role="tab" aria-selected="false">Kritik Stok</button>
+        <button type="button" class="filter-chip" data-filter="low-lock" role="tab" aria-selected="false">Son Stok Kilidi</button>
+        <button type="button" class="filter-chip" data-filter="pending-transfer" role="tab" aria-selected="false">Transit Bekleyen</button>
+      </div>
+
+      <div id="productList" class="product-list" role="listbox" aria-label="Stok Kartları Listesi"></div>
+
+      <div id="emptyCatalogState" class="empty-state hidden">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/>
+          <path d="M20 20l-4-4"/>
+        </svg>
+        <p><strong>Eşleşen ürün veya raf kaydı bulunamadı.</strong> Arama metnini temizleyin veya ambar filtresini "Tüm Ambarlar" olarak değiştirin.</p>
+        <button type="button" id="resetFiltersBtn" class="btn-inline-recovery">Filtreleri Sıfırla</button>
+      </div>
+    </aside>
+
+    <!-- Primary Work Area: Operations Console, Signal-Yellow Wayfinding Band & Exception Engine -->
+    <section class="operation-stage" aria-label="Stok Hareket İşlem Konsolu">
+      <!-- Signature Wayfinding Band: High-visibility Airport Sign System Decision Strip -->
+      <div class="wayfinding-band" id="wayfindingBand">
+        <div class="band-route-block">
+          <div class="pictogram-square" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M5 12h14M13 6l6 6-6 6"/>
+            </svg>
+          </div>
+          <div class="route-meta">
+            <h2 class="band-product-name"><span class="band-sku mono" id="bandSku">URN-1042</span> <span id="bandProductName">30/1 Penye Pamuk İpliği (Lot-884)</span></h2>
+            <div class="band-coordinates">
+              <span class="coord-pill mono" id="bandSourceBin">A1-K02-R04-G01</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                <path d="M5 12h14M13 6l6 6-6 6"/>
+              </svg>
+              <span class="coord-pill coord-target mono" id="bandTargetLabel">Üretim Çıkışı / Sevkiyat</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="band-balance-block" aria-live="polite">
+          <div class="balance-step">
+            <span class="balance-label">Mevcut</span>
+            <span class="balance-num mono" id="bandCurrentQty">140</span>
+          </div>
+          <div class="balance-arrow" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M5 12h14M13 6l6 6-6 6"/>
+            </svg>
+          </div>
+          <div class="balance-step">
+            <span class="balance-label">Fark</span>
+            <span class="balance-num mono" id="bandDeltaQty">-35</span>
+          </div>
+          <div class="balance-arrow" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M5 12h14M13 6l6 6-6 6"/>
+            </svg>
+          </div>
+          <div class="balance-step balance-projected">
+            <span class="balance-label">İşlem Sonrası</span>
+            <span class="balance-num balance-num-lg mono" id="bandProjectedQty">105 <small id="bandUnit">Kg</small></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Product Metadata & Critical Threshold Bar -->
+      <div class="sku-spec-strip" id="skuSpecStrip">
+        <div class="spec-cell">
+          <span class="spec-key">Kilitli Birim</span>
+          <span class="spec-val mono" id="specUnit">Kg</span>
+        </div>
+        <div class="spec-cell">
+          <span class="spec-key">Kritik Eşik</span>
+          <span class="spec-val mono" id="specMinStock">50 Kg</span>
+        </div>
+        <div class="spec-cell">
+          <span class="spec-key">Kayıt Sürümü (Kilit)</span>
+          <span class="spec-val mono" id="specVersion">v4</span>
+        </div>
+        <div class="spec-cell">
+          <span class="spec-key">Durum</span>
+          <span class="spec-val" id="specHealth">Normal Seviye</span>
+        </div>
+      </div>
+
+      <!-- Pending Transfer Handoff Banner (only visible when selected SKU has incoming pending transfer) -->
+      <div id="pendingTransferBanner" class="handoff-banner hidden" role="status">
+        <div class="handoff-text">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 9v4M12 17h.01"/>
+            <path d="M10.3 3.8L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0z"/>
+          </svg>
+          <span id="pendingTransferDesc">Bu ürün için teslim alınmayı bekleyen transfer kaydı mevcut.</span>
+        </div>
+        <div class="handoff-actions">
+          <button type="button" id="acceptTransferBtn" class="btn-handoff-accept">Teslim Al (Stoğa Ekle)</button>
+          <button type="button" id="rejectTransferBtn" class="btn-handoff-reject">Teslim Reddi / İade</button>
+        </div>
+      </div>
+
+      <!-- Operation Mode Tabs -->
+      <div class="op-tabs" role="tablist" aria-label="Stok İşlem Türü">
+        <button type="button" class="op-tab" data-op="entry" role="tab" aria-selected="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 5v14M5 12l7 7 7-7"/>
+          </svg>
+          <span>Stok Girişi</span>
+        </button>
+        <button type="button" class="op-tab active" data-op="exit" role="tab" aria-selected="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 19V5M5 12l7-7 7 7"/>
+          </svg>
+          <span>Stok Çıkışı</span>
+        </button>
+        <button type="button" class="op-tab" data-op="transfer" role="tab" aria-selected="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M4 17h16M16 13l4 4-4 4M20 7H4M8 3L4 7l4 4"/>
+          </svg>
+          <span>Depo / Raf Transferi</span>
+        </button>
+        <button type="button" class="op-tab" data-op="adjust" role="tab" aria-selected="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M9 11l3 3L22 4"/>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+          <span>Sayım &amp; Düzeltme</span>
+        </button>
+      </div>
+
+      <!-- Movement Form -->
+      <form id="movementForm" class="movement-form" novalidate>
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="qtyInput" id="qtyInputLabel">İşlem Miktarı</label>
+            <div class="qty-control-group">
+              <button type="button" class="qty-stepper" id="qtyMinusBtn" aria-label="Miktarı azalt">-</button>
+              <input type="number" id="qtyInput" class="form-input mono" value="35" min="1" step="1" required>
+              <button type="button" class="qty-stepper" id="qtyPlusBtn" aria-label="Miktarı artır">+</button>
+            </div>
+          </div>
+
+          <div class="form-field">
+            <label for="unitSelect">Ölçü Birimi</label>
+            <select id="unitSelect" class="form-input">
+              <option value="Kg">Kg</option>
+              <option value="Adet">Adet</option>
+              <option value="Koli">Koli (24 Adet)</option>
+              <option value="Metre">Metre</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label for="sourceShelfInput">Kaynak Ambar / Raf Konumu</label>
+            <input type="text" id="sourceShelfInput" class="form-input mono" value="A1-K02-R04-G01" readonly>
+          </div>
+
+          <div class="form-field" id="targetFieldGroup">
+            <label for="targetShelfSelect" id="targetLabel">Hedef İstasyon / Raf</label>
+            <select id="targetShelfSelect" class="form-input mono">
+              <option value="URETIM-HAT-03">Üretim Hattı 03 (Çıkış)</option>
+              <option value="SEVKIYAT-KAPI-02">Sevkiyat Kapısı 02 (Çıkış)</option>
+              <option value="B2-K01-R01-G02">B2-K01-R01-G02 (Yarı Mamul)</option>
+              <option value="C1-K03-R02-G01">C1-K03-R02-G01 (Dağıtım)</option>
+              <option value="A1-K05-R02-G04">A1-K05-R02-G04 (Hammadde)</option>
+            </select>
+          </div>
+
+          <div class="form-field form-field-wide">
+            <label for="noteInput">İrsaliye / İş Emri / Sayım Açıklaması</label>
+            <input type="text" id="noteInput" class="form-input" value="Dokuma Hattı 3 vardiya malzeme talebi" placeholder="Belge no veya gerekçe giriniz...">
+          </div>
+        </div>
+
+        <div class="preflight-strip">
+          <div class="preflight-meta">
+            <span class="mono">Anahtar: <strong id="idempotencyKeyDisplay">TXN-88412</strong></span>
+            <span class="mono">Yetki: <strong id="permissionStatusDisplay">Depo Personeli (Uygun)</strong></span>
+          </div>
+          <div class="submit-actions">
+            <button type="button" id="duplicateTestBtn" class="btn-secondary">Çift Gönderim Testi</button>
+            <button type="submit" id="submitMovementBtn" class="btn-primary">Stok Çıkışını Onayla ve Kaydet</button>
+          </div>
+        </div>
+      </form>
+
+      <!-- Feedback & 7-Question Exception Diagnostic Panel -->
+      <div id="diagnosticPanel" class="diagnostic-panel hidden" role="alert" aria-live="assertive">
+        <div class="diag-header">
+          <div class="diag-title-group">
+            <span id="diagIcon" class="diag-icon" aria-hidden="true"></span>
+            <div>
+              <h3 id="diagTitle" class="diag-title">İşlem Durumu</h3>
+              <p id="diagSummary" class="diag-summary"></p>
+            </div>
+          </div>
+          <button type="button" id="closeDiagBtn" class="diag-close-btn" aria-label="Uyarı panelini kapat">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div id="diagAnalysisGrid" class="diag-analysis-grid hidden">
+          <div class="diag-cell"><strong>1. Ne tetikledi?</strong><span id="qTrigger"></span></div>
+          <div class="diag-cell"><strong>2. Sistem neyi biliyor / bilmiyor?</strong><span id="qKnowledge"></span></div>
+          <div class="diag-cell"><strong>3. Kullanıcı ne görür?</strong><span id="qUserView"></span></div>
+          <div class="diag-cell"><strong>4. Engel mi, uyarı mı?</strong><span id="qDecision"></span></div>
+          <div class="diag-cell"><strong>5. Hangi veri kaydedilir?</strong><span id="qPersisted"></span></div>
+          <div class="diag-cell"><strong>6. Kim bilgilendirilir?</strong><span id="qNotified"></span></div>
+          <div class="diag-cell diag-cell-wide"><strong>7. Güvenli duruma dönüş:</strong><span id="qRecovery"></span></div>
+        </div>
+
+        <div id="diagRecoveryBar" class="diag-recovery-bar hidden"></div>
+      </div>
+
+      <!-- Interactive Bad-Case / Exception Simulator (Section 4 of Spec) -->
+      <section class="exception-lab" aria-label="Kötü Durum ve İstisna Senaryoları Test Çubuğu">
+        <div class="lab-header">
+          <h2 class="section-heading">Kötü Durum / İstisna Test Senaryoları</h2>
+          <span class="lab-subtitle">CENG 409 Bölüm 4 analiz doğrulaması (7 canlı senaryo)</span>
+        </div>
+        <div class="lab-chips">
+          <button type="button" class="lab-btn" data-scenario="insufficient">1. Yetersiz Stok Çıkışı</button>
+          <button type="button" class="lab-btn" data-scenario="duplicate">2. Çift / Mükerrer Gönderim</button>
+          <button type="button" class="lab-btn" data-scenario="offline">3. Bağlantı Kesintisi (Kuyruk)</button>
+          <button type="button" class="lab-btn" data-scenario="concurrency">4. Eşzamanlı Son Stok Çakışması</button>
+          <button type="button" class="lab-btn" data-scenario="unauthorized">5. Yetkisiz Stok Düzeltme</button>
+          <button type="button" class="lab-btn" data-scenario="unit-mismatch">6. Ölçü Birimi Hatası</button>
+          <button type="button" class="lab-btn" data-scenario="pending-handoff">7. Hedef Depo Teslim Bekleyen</button>
+        </div>
+      </section>
+    </section>
+
+    <!-- Right / Bottom Audit Trail & Critical Alerts -->
+    <aside class="audit-panel" aria-label="Kalıcı Hareket Geçmişi ve Kritik Uyarılar">
+      <div class="panel-header-row">
+        <h2 class="section-heading">Stok Hareket Geçmişi</h2>
+        <span class="count-badge mono" id="auditCountBadge">0 Kayıt</span>
+      </div>
+
+      <div id="criticalAlertCard" class="critical-summary-card">
+        <div class="crit-header">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M10.3 3.8L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0z"/>
+            <path d="M12 9v4M12 17h.01"/>
+          </svg>
+          <span>Kritik Stok Eşiği Altındaki Ürünler</span>
+        </div>
+        <div id="criticalAlertsList" class="crit-list"></div>
+      </div>
+
+      <div id="auditLogList" class="audit-log-list" aria-live="polite"></div>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
