@@ -43,7 +43,7 @@ interface OperationStepViewProps {
   isOnline: boolean;
   onBackHome: () => void;
   onSwitchMode: (newMode: ActiveOperationMode) => void;
-  onRoleChange: (role: UserRole) => void;
+  onRoleChange?: (role: UserRole) => void;
   onExecuteTransaction: (params: {
     type: 'STOK_GİRİŞİ' | 'STOK_ÇIKIŞI' | 'TRANSFER' | 'SAYIM_DÜZELTME';
     lotNumber: string;
@@ -102,7 +102,6 @@ export const OperationStepView: React.FC<OperationStepViewProps> = ({
   isOnline,
   onBackHome,
   onSwitchMode,
-  onRoleChange,
   onExecuteTransaction,
 }) => {
   const activeShelves = shelves.filter((s) => s.isActive);
@@ -175,22 +174,14 @@ export const OperationStepView: React.FC<OperationStepViewProps> = ({
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+        <div className="flex items-center justify-center pt-2">
           <button
             type="button"
             onClick={onBackHome}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Ana Ekrana Dön</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onRoleChange('Depo Sorumlusu')}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
-          >
-            <ShieldCheck className="w-4 h-4" />
-            <span>Depo Sorumlusu Rolüne Geç</span>
           </button>
         </div>
       </div>

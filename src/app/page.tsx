@@ -57,13 +57,23 @@ export default function WmsDashboard() {
 
   const [currentUser, setCurrentUser] = useState<WarehouseUser | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(INITIAL_PRODUCTS[0]);
-  const [currentRole, setCurrentRole] = useState<UserRole>('Depo Çalışanı');
+  const currentRole: UserRole = currentUser?.role || 'Depo Çalışanı';
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [offlineQueue, setOfflineQueue] = useState<any[]>([]);
   const [networkNotice, setNetworkNotice] = useState<string | null>(null);
 
   const [activeScreen, setActiveScreen] = useState<ScreenState>('HOME');
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState<boolean>(false);
+
+  // RBAC Access Guard: Ensure users cannot view or navigate to panels not permitted for their role
+  useEffect(() => {
+    if (activeScreen === 'ADMIN_PANEL' && currentRole !== 'Admin') {
+      setActiveScreen('HOME');
+    }
+    if (activeScreen === 'SAYIM_DÜZELTME' && currentRole === 'Depo Çalışanı') {
+      setActiveScreen('HOME');
+    }
+  }, [activeScreen, currentRole]);
 
   // Load persisted data from Supabase (with localStorage fallback) and check auth
   useEffect(() => {
@@ -75,7 +85,6 @@ export default function WmsDashboard() {
       if (savedAuth) {
         const parsed: WarehouseUser = JSON.parse(savedAuth);
         setCurrentUser(parsed);
-        setCurrentRole(parsed.role);
       }
     } catch {}
 
@@ -153,6 +162,7 @@ export default function WmsDashboard() {
   };
 
   const handleResetToDefault = () => {
+    if (currentRole !== 'Admin') return;
     persistData(
       INITIAL_PRODUCTS,
       INITIAL_TRANSACTIONS,
@@ -193,6 +203,14 @@ export default function WmsDashboard() {
     expiryDate?: string;
   }): { success: boolean; error?: string } => {
     if (!selectedProduct) return { success: false, error: 'Ürün seçilmedi' };
+
+    // RBAC Security Guard: Depo Çalışanı cannot execute SAYIM_DÜZELTME
+    if (params.type === 'SAYIM_DÜZELTME' && currentRole === 'Depo Çalışanı') {
+      return {
+        success: false,
+        error: 'Yetkisiz İşlem: Sayım düzeltme ve mutabakat yetkisi yalnızca Depo Sorumlusu ve Admin rollerine aittir.',
+      };
+    }
 
     if (!isOnline) {
       setOfflineQueue((prev) => [...prev, params]);
@@ -430,8 +448,9 @@ export default function WmsDashboard() {
     }
   };
 
-  // Admin Handlers
+  // Admin Handlers (Protected by currentRole === 'Admin')
   const handleAddProduct = (newProduct: Product) => {
+    if (currentRole !== 'Admin') return;
     const next = [newProduct, ...products];
     persistData(next, transactions);
     setSelectedProduct(newProduct);
@@ -475,6 +494,7 @@ export default function WmsDashboard() {
   };
 
   const handleUpdateProductThreshold = (productId: string, newThreshold: number) => {
+    if (currentRole !== 'Admin') return;
     const next = products.map((p) =>
       p.id === productId ? { ...p, minCriticalStock: newThreshold } : p
     );
@@ -488,6 +508,7 @@ export default function WmsDashboard() {
   };
 
   const handleDeleteProduct = (productId: string) => {
+    if (currentRole !== 'Admin') return;
     const next = products.filter((p) => p.id !== productId);
     persistData(next, transactions);
     if (selectedProduct?.id === productId) {
@@ -499,6 +520,7 @@ export default function WmsDashboard() {
   };
 
   const handleAddShelf = (newShelf: ShelfLocation) => {
+    if (currentRole !== 'Admin') return;
     const next = [...shelves, newShelf];
     persistData(products, transactions, next);
 
@@ -516,6 +538,7 @@ export default function WmsDashboard() {
   };
 
   const handleToggleShelfStatus = (shelfId: string) => {
+    if (currentRole !== 'Admin') return;
     const target = shelves.find((s) => s.id === shelfId);
     const next = shelves.map((s) =>
       s.id === shelfId ? { ...s, isActive: !s.isActive } : s
@@ -532,6 +555,7 @@ export default function WmsDashboard() {
   };
 
   const handleDeleteShelf = (shelfId: string) => {
+    if (currentRole !== 'Admin') return;
     const next = shelves.filter((s) => s.id !== shelfId);
     persistData(products, transactions, next);
 
@@ -540,6 +564,9 @@ export default function WmsDashboard() {
   };
 
   const handleAddUser = async (newUser: WarehouseUser, password?: string) => {
+    if (currentRole !== 'Admin') {
+      return { success: false, error: 'Yetkisiz İşlem: Yalnızca Admin kullanıcı hesabı tanımlayabilir.' };
+    }
     if (isOnline && password && newUser.email) {
       try {
         const rpcRes: any = await adminCreateStaffAccount({
@@ -585,6 +612,7 @@ export default function WmsDashboard() {
   };
 
   const handleDeleteUser = async (userId: string) => {
+    if (currentRole !== 'Admin') return;
     const next = users.filter((u) => u.id !== userId);
     persistData(products, transactions, shelves, next);
 
@@ -599,6 +627,9 @@ export default function WmsDashboard() {
   };
 
   const handleResetPassword = async (authUserId: string, newPass: string) => {
+    if (currentRole !== 'Admin') {
+      return { success: false, error: 'Yetkisiz İşlem: Yalnızca Admin şifre sıfırlayabilir.' };
+    }
     if (!isOnline) {
       return { success: true };
     }
@@ -611,6 +642,7 @@ export default function WmsDashboard() {
   };
 
   const handleUpdateUserRole = (userId: string, newRole: UserRole) => {
+    if (currentRole !== 'Admin') return;
     const next = users.map((u) => (u.id === userId ? { ...u, role: newRole } : u));
     persistData(products, transactions, shelves, next);
 
@@ -619,6 +651,7 @@ export default function WmsDashboard() {
   };
 
   const handleToggleUserStatus = (userId: string) => {
+    if (currentRole !== 'Admin') return;
     const target = users.find((u) => u.id === userId);
     const next = users.map((u) =>
       u.id === userId ? { ...u, isActive: !u.isActive } : u
@@ -635,6 +668,7 @@ export default function WmsDashboard() {
   };
 
   const handleUpdateSystemRules = (newRules: SystemRules) => {
+    if (currentRole !== 'Admin') return;
     persistData(products, transactions, shelves, users, newRules);
 
     const sb = getSupabaseClient(currentRole);
@@ -672,74 +706,149 @@ export default function WmsDashboard() {
     });
   });
 
-  const actionCards = [
-    {
-      id: 'SORGULAMA' as ScreenState,
-      title: 'Barkod & Stok Sorgula',
-      description:
-        'Kamera veya barkod okuyucu ile ürünün hangi rafta, hangi partide kaç adet bulunduğunu ve SKT bilgisini sorgulayın.',
-      icon: Scan,
-      badge: 'Tüm Roller',
-      iconTheme: 'text-teal-700 bg-teal-50 border-teal-200',
-      hoverBorder: 'hover:border-teal-500',
-      restricted: false,
-    },
-    {
-      id: 'STOK_GİRİŞİ' as ScreenState,
-      title: 'Stok Girişi (Mal Kabul)',
-      description:
-        'Depoya yeni gelen takviye edici gıdaları parti (lot) numarası, son kullanma tarihi ve hedef raf konumuyla kaydedin.',
-      icon: ArrowDownLeft,
-      badge: 'Mal Kabul Operasyonu',
-      iconTheme: 'text-blue-700 bg-blue-50 border-blue-200',
-      hoverBorder: 'hover:border-blue-500',
-      restricted: false,
-    },
-    {
-      id: 'STOK_ÇIKIŞI' as ScreenState,
-      title: 'Stok Çıkışı (FEFO Sevkiyat)',
-      description:
-        'Son kullanma tarihi en yakın olan partiden (FEFO kuralı) miad ve bakiye kontrolüyle güvenli sevkiyat çıkışı yapın.',
-      icon: ArrowUpRight,
-      badge: 'FEFO Öncelikli',
-      iconTheme: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-      hoverBorder: 'hover:border-emerald-500',
-      restricted: false,
-    },
-    {
-      id: 'TRANSFER' as ScreenState,
-      title: 'Depo / Raf Transferi',
-      description:
-        'Partileri ambar rafları arasında taşıyın veya son kullanma tarihi yaklaşan ürünleri Karantina bölgesine ayırın.',
-      icon: ArrowLeftRight,
-      badge: 'İç Lojistik & Karantina',
-      iconTheme: 'text-indigo-700 bg-indigo-50 border-indigo-200',
-      hoverBorder: 'hover:border-indigo-500',
-      restricted: false,
-    },
-    {
-      id: 'SAYIM_DÜZELTME' as ScreenState,
-      title: 'Sayım & Stok Farkı Düzeltme',
-      description:
-        'Fiziksel raf sayımı ile sistem bakiyesi arasında fark oluştuğunda gerekçe kaydıyla stok miktarını eşitleyin.',
-      icon: ClipboardCheck,
-      badge: 'Sorumlu & Admin',
-      iconTheme: 'text-amber-700 bg-amber-50 border-amber-200',
-      hoverBorder: 'hover:border-amber-500',
-      restricted: currentRole === 'Depo Çalışanı',
-    },
-    {
-      id: 'AUDIT_LOG' as ScreenState,
-      title: 'Hareket Geçmişi & Geri Alma',
-      description:
-        'Yapılan tüm giriş, çıkış ve transferleri inceleyin; hatalı kayıtları yetkili onayı ve Ters Kayıt ile geri alın.',
-      icon: History,
-      badge: `${transactions.length} Hareket Kaydı`,
-      iconTheme: 'text-slate-700 bg-slate-100 border-slate-300',
-      hoverBorder: 'hover:border-slate-500',
-      restricted: false,
-    },
-  ];
+  // Role-Specific Action Cards: Each role sees only the panels & operations authorized for them
+  const actionCards = (() => {
+    const baseCards = [
+      {
+        id: 'SORGULAMA' as ScreenState,
+        title: 'Barkod & Stok Sorgula',
+        description:
+          'Kamera veya barkod okuyucu ile ürünün hangi rafta, hangi partide kaç adet bulunduğunu ve SKT bilgisini sorgulayın.',
+        icon: Scan,
+        badge: 'Operasyonel Sorgu',
+        iconTheme: 'text-teal-700 bg-teal-50 border-teal-200',
+        hoverBorder: 'hover:border-teal-500',
+        onClick: () => setActiveScreen('SORGULAMA'),
+      },
+      {
+        id: 'STOK_GİRİŞİ' as ScreenState,
+        title: 'Stok Girişi (Mal Kabul)',
+        description:
+          'Depoya yeni gelen takviye edici gıdaları parti (lot) numarası, son kullanma tarihi ve hedef raf konumuyla kaydedin.',
+        icon: ArrowDownLeft,
+        badge: 'Mal Kabul Operasyonu',
+        iconTheme: 'text-blue-700 bg-blue-50 border-blue-200',
+        hoverBorder: 'hover:border-blue-500',
+        onClick: () => setActiveScreen('STOK_GİRİŞİ'),
+      },
+      {
+        id: 'STOK_ÇIKIŞI' as ScreenState,
+        title: 'Stok Çıkışı (FEFO Sevkiyat)',
+        description:
+          'Son kullanma tarihi en yakın olan partiden (FEFO kuralı) miad ve bakiye kontrolüyle güvenli sevkiyat çıkışı yapın.',
+        icon: ArrowUpRight,
+        badge: 'FEFO Öncelikli',
+        iconTheme: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+        hoverBorder: 'hover:border-emerald-500',
+        onClick: () => setActiveScreen('STOK_ÇIKIŞI'),
+      },
+      {
+        id: 'TRANSFER' as ScreenState,
+        title: 'Depo / Raf Transferi',
+        description:
+          'Partileri ambar rafları arasında taşıyın veya son kullanma tarihi yaklaşan ürünleri Karantina bölgesine ayırın.',
+        icon: ArrowLeftRight,
+        badge: 'İç Lojistik & Karantina',
+        iconTheme: 'text-indigo-700 bg-indigo-50 border-indigo-200',
+        hoverBorder: 'hover:border-indigo-500',
+        onClick: () => setActiveScreen('TRANSFER'),
+      },
+    ];
+
+    if (currentRole === 'Depo Çalışanı') {
+      return [
+        ...baseCards,
+        {
+          id: 'AUDIT_LOG' as ScreenState,
+          title: 'Hareket Geçmişi (Denetim İzi)',
+          description:
+            'Depoda gerçekleştirilen tüm giriş, çıkış ve transfer hareketlerini inceleyin (Salt Okunur).',
+          icon: History,
+          badge: `${transactions.length} Hareket Kaydı (Görüntüleme)`,
+          iconTheme: 'text-slate-700 bg-slate-100 border-slate-300',
+          hoverBorder: 'hover:border-slate-500',
+          onClick: () => setActiveScreen('AUDIT_LOG'),
+        },
+        {
+          id: 'CATALOG_MODAL' as any,
+          title: 'Ürün & Stok Kataloğu',
+          description:
+            'Depodaki tüm ürünlerin barkod, form, birim, aktif parti ve raf lokasyon detaylarını inceleyin.',
+          icon: Package,
+          badge: `${products.length} Ürün Kartı`,
+          iconTheme: 'text-teal-700 bg-teal-50 border-teal-200',
+          hoverBorder: 'hover:border-teal-500',
+          onClick: () => setIsInventoryModalOpen(true),
+        },
+      ];
+    }
+
+    if (currentRole === 'Depo Sorumlusu') {
+      return [
+        ...baseCards,
+        {
+          id: 'SAYIM_DÜZELTME' as ScreenState,
+          title: 'Sayım & Stok Farkı Düzeltme',
+          description:
+            'Fiziksel raf sayımı ile sistem bakiyesi arasında fark oluştuğunda gerekçe kaydıyla stok miktarını eşitleyin.',
+          icon: ClipboardCheck,
+          badge: 'Sorumlu Yetkili',
+          iconTheme: 'text-amber-700 bg-amber-50 border-amber-200',
+          hoverBorder: 'hover:border-amber-500',
+          onClick: () => setActiveScreen('SAYIM_DÜZELTME'),
+        },
+        {
+          id: 'AUDIT_LOG' as ScreenState,
+          title: 'Hareket Geçmişi & Onaylı Geri Alma',
+          description:
+            'Yapılan tüm giriş, çıkış ve transferleri inceleyin; hatalı kayıtları yetkili onayı ve Ters Kayıt ile geri alın.',
+          icon: History,
+          badge: `${transactions.length} Hareket Kaydı (Geri Alma Açık)`,
+          iconTheme: 'text-slate-700 bg-slate-100 border-slate-300',
+          hoverBorder: 'hover:border-slate-500',
+          onClick: () => setActiveScreen('AUDIT_LOG'),
+        },
+      ];
+    }
+
+    // Admin Rolü: Tüm operasyonlar + Sistem & Ana Veri Yönetimi Paneli
+    return [
+      ...baseCards,
+      {
+        id: 'SAYIM_DÜZELTME' as ScreenState,
+        title: 'Sayım & Stok Farkı Düzeltme',
+        description:
+          'Fiziksel raf sayımı ile sistem bakiyesi arasında fark oluştuğunda gerekçe kaydıyla stok miktarını eşitleyin.',
+        icon: ClipboardCheck,
+        badge: 'Yönetici Yetkili',
+        iconTheme: 'text-amber-700 bg-amber-50 border-amber-200',
+        hoverBorder: 'hover:border-amber-500',
+        onClick: () => setActiveScreen('SAYIM_DÜZELTME'),
+      },
+      {
+        id: 'AUDIT_LOG' as ScreenState,
+        title: 'Hareket Geçmişi & Geri Alma',
+        description:
+          'Tüm hareket kayıtlarını denetleyin; ters kayıt onaylarını ve işlem loglarını yönetin.',
+        icon: History,
+        badge: `${transactions.length} Hareket Kaydı`,
+        iconTheme: 'text-slate-700 bg-slate-100 border-slate-300',
+        hoverBorder: 'hover:border-slate-500',
+        onClick: () => setActiveScreen('AUDIT_LOG'),
+      },
+      {
+        id: 'ADMIN_PANEL' as ScreenState,
+        title: 'Sistem & Ana Veri Yönetimi',
+        description:
+          'Ürün ana verileri, raf/ambar tanımları, personel kullanıcı hesapları ve sistem iş kurallarını yönetin.',
+        icon: Settings,
+        badge: 'Admin Paneli',
+        iconTheme: 'text-slate-900 bg-slate-100 border-slate-300',
+        hoverBorder: 'hover:border-slate-800',
+        onClick: () => setActiveScreen('ADMIN_PANEL'),
+      },
+    ];
+  })();
 
   if (!currentUser) {
     return (
@@ -747,7 +856,6 @@ export default function WmsDashboard() {
         users={users}
         onLoginSuccess={(user) => {
           setCurrentUser(user);
-          setCurrentRole(user.role);
           localStorage.setItem('careup_auth_user', JSON.stringify(user));
         }}
       />
@@ -759,7 +867,6 @@ export default function WmsDashboard() {
       <Header
         currentRole={currentRole}
         currentUser={currentUser}
-        onRoleChange={setCurrentRole}
         onLogout={handleLogout}
         isOnline={isOnline}
         onToggleNetwork={handleToggleNetwork}
@@ -821,27 +928,21 @@ export default function WmsDashboard() {
                     </span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-bold text-slate-900 pt-1">
-                    CareUp Depo Operasyon ve Stok Yönetim Merkezi
+                    Biorasence Depo Operasyon ve Stok Yönetim Merkezi
                   </h2>
                 </div>
 
-                {/* Quick Admin Panel Shortcut Button */}
-                <button
-                  type="button"
-                  onClick={() => setActiveScreen('ADMIN_PANEL')}
-                  className={`self-start md:self-auto flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border transition-all cursor-pointer shrink-0 ${
-                    currentRole === 'Admin'
-                      ? 'bg-slate-900 hover:bg-slate-800 text-white border-slate-900 shadow-xs'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
-                  }`}
-                >
-                  {currentRole === 'Admin' ? (
+                {/* Quick Admin Panel Shortcut Button (Only visible to Admin role) */}
+                {currentRole === 'Admin' && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveScreen('ADMIN_PANEL')}
+                    className="self-start md:self-auto flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border transition-all cursor-pointer shrink-0 bg-slate-900 hover:bg-slate-800 text-white border-slate-900 shadow-xs"
+                  >
                     <Settings className="w-4 h-4 text-teal-400" />
-                  ) : (
-                    <Lock className="w-4 h-4 text-slate-500" />
-                  )}
-                  <span>Sistem &amp; Ana Veri Yönetimi (Admin)</span>
-                </button>
+                    <span>Sistem &amp; Ana Veri Yönetimi (Admin)</span>
+                  </button>
+                )}
               </div>
 
               {/* 4 KPI Status Metrics */}
@@ -898,14 +999,14 @@ export default function WmsDashboard() {
               </div>
             </div>
 
-            {/* 6 Core Warehouse Operation Cards Grid */}
+            {/* Core Warehouse Operation Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {actionCards.map((card) => {
                 const IconComponent = card.icon;
                 return (
                   <div
                     key={card.id}
-                    onClick={() => setActiveScreen(card.id)}
+                    onClick={card.onClick}
                     className={`group bg-white border border-slate-200 ${card.hoverBorder} rounded-2xl p-6 flex flex-col justify-between transition-all cursor-pointer shadow-2xs hover:shadow-md`}
                   >
                     <div className="space-y-4">
@@ -914,7 +1015,6 @@ export default function WmsDashboard() {
                           <IconComponent className="w-6 h-6" />
                         </div>
                         <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 flex items-center gap-1">
-                          {card.restricted && <Lock className="w-3 h-3 text-amber-600" />}
                           {card.badge}
                         </span>
                       </div>
@@ -1053,7 +1153,6 @@ export default function WmsDashboard() {
             currentRole={currentRole}
             onRollbackTransaction={handleRollbackTransaction}
             onBackHome={() => setActiveScreen('HOME')}
-            onRoleChange={setCurrentRole}
           />
         ) : activeScreen === 'ADMIN_PANEL' ? (
           <AdminPanel
@@ -1076,7 +1175,6 @@ export default function WmsDashboard() {
             onUpdateSystemRules={handleUpdateSystemRules}
             onResetSystemData={handleResetToDefault}
             onBackHome={() => setActiveScreen('HOME')}
-            onRoleChange={setCurrentRole}
           />
         ) : (
           <OperationStepView
@@ -1090,7 +1188,6 @@ export default function WmsDashboard() {
             isOnline={isOnline}
             onBackHome={() => setActiveScreen('HOME')}
             onSwitchMode={(newMode) => setActiveScreen(newMode)}
-            onRoleChange={setCurrentRole}
             onExecuteTransaction={handleExecuteTransaction}
           />
         )}

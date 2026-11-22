@@ -9,7 +9,6 @@ import {
   Wifi,
   WifiOff,
   Home,
-  Boxes,
   LogOut,
 } from 'lucide-react';
 import { UserRole, WarehouseUser } from '../data/mockData';
@@ -17,7 +16,7 @@ import { UserRole, WarehouseUser } from '../data/mockData';
 interface HeaderProps {
   currentRole: UserRole;
   currentUser?: WarehouseUser | null;
-  onRoleChange: (role: UserRole) => void;
+  onRoleChange?: (role: UserRole) => void;
   onLogout?: () => void;
   isOnline: boolean;
   onToggleNetwork: () => void;
@@ -42,27 +41,21 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-30 w-full bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-        {/* Left: Brand Identity */}
+        {/* Left: Brand Identity (Minimalist & Clean) */}
         <div
           onClick={onGoHome}
-          className="flex items-center gap-3 cursor-pointer group shrink-0"
+          className="flex items-center gap-2.5 cursor-pointer group shrink-0 select-none"
         >
-          <div className="h-10 w-10 rounded-xl bg-teal-700 flex items-center justify-center text-white shadow-sm group-hover:bg-teal-800 transition-colors">
-            <Boxes className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                CareUp <span className="text-teal-700">WMS</span>
-              </h1>
-              <span className="hidden md:inline-block text-[11px] font-semibold px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 border border-teal-200">
-                Lojistik &amp; Parti Takip
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 hidden sm:block">
-              Takviye Edici Gıda Ambar ve Lot/SKT Yönetim Sistemi
-            </p>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="Biorasence Logo"
+            className="h-8 sm:h-9 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.03]"
+          />
+          <div className="h-5 w-px bg-slate-200 hidden sm:block" />
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80 tracking-tight">
+            Lojistik &amp; Parti Takip
+          </span>
         </div>
 
         {/* Right: Navigation, 3-Tier Role Switcher, Network & Catalog */}
@@ -78,50 +71,52 @@ export const Header: React.FC<HeaderProps> = ({
           )}
 
           {/* 3-Tier Role Switcher: Depo Çalışanı | Depo Sorumlusu | Admin */}
-          <div
-            className="flex items-center bg-slate-100 border border-slate-200 rounded-xl p-1"
-            role="group"
-            aria-label="Aktif Kullanıcı Rolü"
-          >
-            <button
-              type="button"
-              onClick={() => onRoleChange('Depo Çalışanı')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                currentRole === 'Depo Çalışanı'
-                  ? 'bg-teal-700 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+          {onRoleChange && (
+            <div
+              className="flex items-center bg-slate-100 border border-slate-200 rounded-xl p-1"
+              role="group"
+              aria-label="Aktif Kullanıcı Rolü"
             >
-              <User className="w-3.5 h-3.5" />
-              <span>Depo Çalışanı</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => onRoleChange('Depo Çalışanı')}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  currentRole === 'Depo Çalışanı'
+                    ? 'bg-teal-700 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>Depo Çalışanı</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => onRoleChange('Depo Sorumlusu')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                currentRole === 'Depo Sorumlusu'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Depo Sorumlusu</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => onRoleChange('Depo Sorumlusu')}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  currentRole === 'Depo Sorumlusu'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Depo Sorumlusu</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => onRoleChange('Admin')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                currentRole === 'Admin'
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Settings className="w-3.5 h-3.5" />
-              <span>Admin</span>
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => onRoleChange('Admin')}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  currentRole === 'Admin'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Settings className="w-3.5 h-3.5" />
+                <span>Admin</span>
+              </button>
+            </div>
+          )}
 
           {/* Network Status Button */}
           <button

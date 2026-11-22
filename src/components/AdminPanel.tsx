@@ -46,7 +46,7 @@ interface AdminPanelProps {
   onUpdateSystemRules: (newRules: SystemRules) => void;
   onResetSystemData: () => void;
   onBackHome: () => void;
-  onRoleChange: (role: UserRole) => void;
+  onRoleChange?: (role: UserRole) => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -69,7 +69,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateSystemRules,
   onResetSystemData,
   onBackHome,
-  onRoleChange,
 }) => {
   const [activeTab, setActiveTab] = useState<'PRODUCTS' | 'SHELVES' | 'USERS_RULES'>('PRODUCTS');
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
@@ -135,22 +134,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+        <div className="flex items-center justify-center pt-2">
           <button
             type="button"
             onClick={onBackHome}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Ana Ekrana Dön</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onRoleChange('Admin')}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
-          >
-            <Settings className="w-4 h-4" />
-            <span>Admin Rolüne Geç</span>
           </button>
         </div>
       </div>

@@ -28,7 +28,6 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
   currentRole,
   onRollbackTransaction,
   onBackHome,
-  onRoleChange,
 }) => {
   // State for unauthorized attempt (Depo Çalışanı)
   const [unauthorizedAttemptTrx, setUnauthorizedAttemptTrx] = useState<Transaction | null>(null);
@@ -134,31 +133,17 @@ export const AuditTrail: React.FC<AuditTrailProps> = ({
           <button
             type="button"
             onClick={() => setUnauthorizedAttemptTrx(null)}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Hareket Geçmişine Dön</span>
           </button>
 
-          {onRoleChange && (
-            <button
-              type="button"
-              onClick={() => {
-                onRoleChange('Depo Sorumlusu');
-                setUnauthorizedAttemptTrx(null);
-              }}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-semibold shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Depo Sorumlusu Rolüne Geç</span>
-            </button>
-          )}
-
           {onBackHome && (
             <button
               type="button"
               onClick={onBackHome}
-              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-600 hover:text-slate-900 text-xs sm:text-sm font-medium transition-all cursor-pointer"
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs sm:text-sm font-semibold transition-all cursor-pointer"
             >
               Ana Ekrana Dön
             </button>

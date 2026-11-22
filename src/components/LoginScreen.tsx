@@ -177,15 +177,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     <div className="min-h-screen flex flex-col justify-center items-center bg-[#F3F6F8] p-4 sm:p-6 text-slate-900">
       <div className="w-full max-w-md space-y-6">
         {/* Brand Card Header */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-teal-700 text-white shadow-md mx-auto mb-1">
-            <Boxes className="w-8 h-8" />
+        <div className="text-center space-y-2.5">
+          <div className="inline-flex items-center justify-center px-6 py-3 rounded-2xl bg-white shadow-2xs border border-slate-200/90 mx-auto">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="Biorasence"
+              className="h-11 sm:h-12 w-auto object-contain"
+            />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            CareUp <span className="text-teal-700">WMS</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            Takviye Edici Gıda Mobil Depo ve Stok Takip Sistemi
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80 tracking-tight">
+              Lojistik &amp; Parti Takip Sistemi
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 font-medium">
+            Mobil Depo ve Lot/SKT Operasyon Konsolu
           </p>
         </div>
 
